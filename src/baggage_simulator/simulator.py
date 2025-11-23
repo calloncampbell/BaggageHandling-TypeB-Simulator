@@ -174,10 +174,11 @@ for route in DEFAULT_ROUTES:
 class SimulatorConfig:
     eventhub_conn: str | None
     eventhub_name: str | None
-    typeb_eventhub_conn: str | None = None  # Optional separate Event Hub for Type-B operational messages
-    typeb_eventhub_name: str | None = None
     sql_conn: str | None
     sql_table: str = "dbo.Flights"
+    # Optional separate Event Hub for Type-B operational messages
+    typeb_eventhub_conn: str | None = None
+    typeb_eventhub_name: str | None = None
     # Real-time batching window for Event Hubs (seconds). Events for the same
     # flight/partition key are buffered and sent together within this window.
     eventhub_batch_window_seconds: float = 5.0
@@ -1374,7 +1375,7 @@ class Simulator:
         dep_date = f.departure_utc.strftime("%d%b").upper()
         lines = [
             "LDM",
-            f"{f.airline}{f.flight_number:04d}/{dep_date}.{f.origin}{f.destination}",
+            f"{f.flight_number}/{dep_date}.{f.origin}{f.destination}",
             f".PAX {pax_count}",
             f".BAG {checked_bags} T{int(total_weight)}K",
             f".TOTAL BAGS {checked_bags}",
@@ -1397,7 +1398,7 @@ class Simulator:
         
         lines = [
             "MVT",
-            f"{f.airline}{f.flight_number:04d}/{date_str}.{f.origin}{f.destination}",
+            f"{f.flight_number}/{date_str}.{f.origin}{f.destination}",
             f"{movement_type} {time_str}",
         ]
         
