@@ -174,6 +174,8 @@ for route in DEFAULT_ROUTES:
 class SimulatorConfig:
     eventhub_conn: str | None
     eventhub_name: str | None
+    typeb_eventhub_conn: str | None = None  # Optional separate Event Hub for Type-B operational messages
+    typeb_eventhub_name: str | None = None
     sql_conn: str | None
     sql_table: str = "dbo.Flights"
     # Real-time batching window for Event Hubs (seconds). Events for the same
@@ -231,6 +233,7 @@ class Passenger:
 class Simulator:
     # attribute declarations for static analysis
     _producer: Any | None
+    _producer_typeb: Any | None  # Optional separate producer for Type-B operational messages
     _conn: Any | None
     _active_flights: Dict[str, Any]
     _console: Optional[Console]
@@ -274,6 +277,7 @@ class Simulator:
             self._routes.append(route)
             self._routes.append(route.reverse)
         self._producer = None
+        self._producer_typeb = None
         self._conn = None
         self._active_flights = {}
         self._console = Console(stderr=True) if cfg.enable_console else None
@@ -339,6 +343,11 @@ class Simulator:
                 raise RuntimeError("Event Hubs connection and name required")
             self._producer = EventHubProducerClient.from_connection_string(
                 conn_str=self.cfg.eventhub_conn, eventhub_name=self.cfg.eventhub_name
+            )
+        # Initialize separate Type-B Event Hub producer if configured
+        if not self._producer_typeb and self.cfg.typeb_eventhub_conn and self.cfg.typeb_eventhub_name:
+            self._producer_typeb = EventHubProducerClient.from_connection_string(
+                conn_str=self.cfg.typeb_eventhub_conn, eventhub_name=self.cfg.typeb_eventhub_name
             )
         if not self._conn:
             if not self.cfg.sql_conn:
@@ -627,11 +636,14 @@ class Simulator:
             self._live = None
         # Flush any outstanding EH buffers before closing
         with contextlib.suppress(Exception):
-            if self._producer:
+            if self._producer or self._producer_typeb:
                 await self._flush_due_eventhub_buffers(force=True)
         with contextlib.suppress(Exception):
             if self._producer:
                 await self._producer.close()
+        with contextlib.suppress(Exception):
+            if self._producer_typeb:
+                await self._producer_typeb.close()
         with contextlib.suppress(Exception):
             if self._conn:
                 self._conn.close()
@@ -1818,8 +1830,22 @@ class Simulator:
                 )
             return
 
+        # Determine which producer to use based on event type
+        # Type-B operational messages go to separate Event Hub if configured
+        event_type_str = ""
+        if isinstance(evt, CloudEvent):
+            try:
+                event_type_str = str(evt.get("type") or evt["type"])
+            except Exception:
+                pass
+        elif isinstance(evt, dict):
+            event_type_str = str(evt.get("type") or "")
+        
+        is_typeb = "TypeB" in event_type_str or "Type-B" in event_type_str
+        producer = self._producer_typeb if (is_typeb and self._producer_typeb) else self._producer
+        
         # Ensure producer available
-        assert self._producer
+        assert producer
         mode = getattr(self.cfg, "ce_mode", "structured")
 
         # Normalize event type / subject / payload and collect CloudEvent attrs
@@ -1901,10 +1927,13 @@ class Simulator:
                     pass
 
         # Buffer by partition key (flightId preferred) for real-time batching
+        # Use separate buffer namespace for Type-B messages when using separate Event Hub
         pk = str(payload.get("flightId") or subject or "")
         key = pk or "__default__"
-        # enqueue
-        self._eh_buffers[key].append((pk if pk else None, data, event_type, subject, payload))
+        if is_typeb and self._producer_typeb:
+            key = f"typeb:{key}"
+        # enqueue with producer reference
+        self._eh_buffers[key].append((pk if pk else None, data, event_type, subject, payload, producer))
         # record first-seen time
         self._eh_first_seen.setdefault(key, time.monotonic())
 
@@ -1947,8 +1976,9 @@ class Simulator:
         """Flush Event Hubs buffers that have reached the batching window or all when force=True.
 
         Groups buffered EventData by partition key and sends them using size-aware batches.
+        Handles both standard and Type-B producers.
         """
-        if not self._producer:
+        if not self._producer and not self._producer_typeb:
             # Nothing to flush in dry-run or when producer not initialised
             self._eh_buffers.clear()
             self._eh_first_seen.clear()
@@ -1967,17 +1997,21 @@ class Simulator:
                 self._eh_buffers.pop(key, None)
                 self._eh_first_seen.pop(key, None)
                 continue
-            # Partition key (None allowed)
+            # Extract partition key and producer from first item
+            # Buffer entries now include producer reference: (pk, data, event_type, subject, payload, producer)
             pk = items[0][0]
+            producer = items[0][5] if len(items[0]) > 5 else self._producer
+            
             # Send in size-constrained batches
             i = 0
             sent_count = 0
             try:
                 while i < len(items):
-                    batch = await self._producer.create_batch(partition_key=pk)
+                    batch = await producer.create_batch(partition_key=pk)
                     # pack as many as fit
                     while i < len(items):
-                        _, data, _, _, _ = items[i]
+                        item = items[i]
+                        _, data, _, _, _ = item[:5]
                         try:
                             batch.add(data)
                             i += 1
@@ -1985,14 +2019,16 @@ class Simulator:
                         except ValueError:
                             break
                     if len(batch) > 0:  # type: ignore[arg-type]
-                        await self._producer.send_batch(batch)
+                        await producer.send_batch(batch)
                 # Log a single summary line for the batch flush
                 # Try to report a representative event
-                _, _, evt_type, subj, payload = items[-1]
+                item = items[-1]
+                _, _, evt_type, subj, payload = item[:5]
                 if getattr(self.cfg, "verbose", False):
                     emoji = self._emoji_for_event(str(evt_type or ""))
+                    hub_type = " [Type-B]" if key.startswith("typeb:") else ""
                     self._log(
-                        f"{emoji} Sent batch x{sent_count} flight={payload.get('flightId','')} pk={pk or ''}",
+                        f"{emoji} Sent batch x{sent_count}{hub_type} flight={payload.get('flightId','')} pk={pk or ''}",
                         style="green",
                     )
             except Exception as ex:

@@ -154,7 +154,11 @@ Type-B messages are displayed with a 📄 emoji in verbose console output for ea
 
 ## Usage
 
-Type-B messages are automatically emitted during normal simulator operation:
+Type-B messages are automatically emitted during normal simulator operation. You can optionally configure a separate Event Hub for operational messages to isolate them from baggage tracking events.
+
+### Single Event Hub (Default)
+
+All events (baggage, passenger, and Type-B operational messages) are sent to the same Event Hub:
 
 ```bash
 # Dry-run with verbose output to see Type-B messages
@@ -167,6 +171,47 @@ python -m baggage_simulator.cli \
   --eventhub-name $EVENTHUB_NAME \
   --sql-conn $SQLSERVER_CONNECTION_STRING
 ```
+
+### Separate Event Hub for Type-B Messages (Recommended for Production)
+
+Configure a dedicated Event Hub for operational messages to enable:
+- Independent scaling and throughput management
+- Separate consumer groups for airline operations vs baggage handling systems
+- Different retention policies (operational messages may need longer retention)
+- Isolated security and access control
+
+```bash
+# Use separate Event Hubs
+python -m baggage_simulator.cli \
+  --clock-speed 120 \
+  --eventhub-conn $EVENTHUB_CONNECTION_STRING \
+  --eventhub-name $EVENTHUB_NAME \
+  --typeb-eventhub-conn $TYPEB_EVENTHUB_CONNECTION_STRING \
+  --typeb-eventhub-name $TYPEB_EVENTHUB_NAME \
+  --sql-conn $SQLSERVER_CONNECTION_STRING
+```
+
+**Environment Variables:**
+- `EVENTHUB_CONNECTION_STRING` / `EVENTHUB_NAME` - Main Event Hub for baggage/passenger events
+- `TYPEB_EVENTHUB_CONNECTION_STRING` / `TYPEB_EVENTHUB_NAME` - Optional separate Event Hub for Type-B operational messages
+
+When Type-B Event Hub configuration is provided, all Type-B messages (LDM, MVT/DEP, MVT/ARR) are automatically routed to the separate Event Hub while other events continue to use the main Event Hub.
+
+### Configuration Trade-offs
+
+**Single Event Hub:**
+- ✅ Simpler configuration and management
+- ✅ Single consumer can process all event types
+- ⚠️ Mixed throughput and retention requirements
+- ⚠️ Harder to isolate operational vs baggage systems
+
+**Separate Event Hubs:**
+- ✅ Independent scaling and performance tuning
+- ✅ Isolated consumer systems (operations vs baggage handling)
+- ✅ Different retention policies per message category
+- ✅ Better security isolation and access control
+- ⚠️ Requires additional Event Hub configuration
+- ⚠️ Slightly more complex setup
 
 ## CloudEvents Format
 
