@@ -34,7 +34,7 @@ NV4399/23NOV.FRAMUC
   "destination": "MUC",
   "departureUtc": "2025-11-23T20:54:00Z",
   "messageType": "LDM",
-  "rawMessage": "LDM\nNV4399/23NOV.FRAMUC\n...",
+  "rawMessage": "LDM\nNV4399/23NOV.FRAMUC\n.PAX 98\n.BAG 69 T1242K\n.TOTAL BAGS 69",
   "loadData": {
     "passengers": 98,
     "bags": 69,
