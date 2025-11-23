@@ -1,0 +1,394 @@
+// ============================================================================
+// Type-B Message Query Examples
+// ============================================================================
+// Example queries for analyzing IATA Type-B operational messages
+// (LDM, MVT/DEP, MVT/ARR) from the baggage handling simulator.
+//
+// Prerequisites: 
+// - Run typeb_tables.kql to create the required tables
+// - Ensure typeb_flight_events table is populated with Type-B CloudEvents
+// ============================================================================
+
+
+// ============================================================================
+// BASIC QUERIES - Getting Started
+// ============================================================================
+
+// 1. View all LDM (Load Message) events - Final load information after check-in closes
+['Airport.Flight.TypeB.LDM_v1']
+| take 10
+
+// 2. View all MVT/DEP (Movement Departure) events
+['Airport.Flight.TypeB.MVT.DEP_v1']
+| take 10
+
+// 3. View all MVT/ARR (Movement Arrival) events
+['Airport.Flight.TypeB.MVT.ARR_v1']
+| take 10
+
+// 4. View all Type-B messages using unified function
+airport_flight_typeb_all()
+| take 20
+
+
+// ============================================================================
+// RAW MESSAGE ANALYSIS
+// ============================================================================
+
+// 5. Display raw Type-B message formats (as sent by the simulator)
+['Airport.Flight.TypeB.LDM_v1']
+| project ___time, flightNumber, messageType, rawMessage
+| take 5
+
+// 6. View all raw Type-B messages for a specific flight
+airport_flight_typeb_all()
+| where flightNumber == "NV4399"
+| project ___time, messageType, rawMessage
+| order by ___time asc
+
+// 7. Raw messages by message type with counts
+airport_flight_typeb_all()
+| summarize Count = count(), Sample = any(rawMessage) by messageType
+
+
+// ============================================================================
+// LOAD MESSAGE (LDM) ANALYSIS
+// ============================================================================
+
+// 8. Recent load messages with passenger and baggage counts
+['Airport.Flight.TypeB.LDM_v1']
+| project 
+    Time = ___time,
+    Flight = flightNumber,
+    Route = strcat(origin, "→", destination),
+    Passengers = passengers,
+    Bags = bags,
+    AvgBagWeight = round(totalWeightKg / bags, 1),
+    TotalWeightKg = totalWeightKg
+| order by Time desc
+| take 20
+
+// 9. Average load statistics by airline
+['Airport.Flight.TypeB.LDM_v1']
+| summarize 
+    Flights = count(),
+    AvgPassengers = round(avg(passengers), 0),
+    AvgBags = round(avg(bags), 0),
+    AvgTotalWeightKg = round(avg(totalWeightKg), 1),
+    AvgBagWeightKg = round(avg(totalWeightKg / bags), 1)
+    by airline
+| order by Flights desc
+
+// 10. Flights with unusually high or low load factors
+['Airport.Flight.TypeB.LDM_v1']
+| extend BagsPerPax = round(todouble(bags) / passengers, 2)
+| where BagsPerPax > 1.0 or BagsPerPax < 0.5
+| project 
+    ___time, flightNumber, origin, destination,
+    passengers, bags, BagsPerPax, totalWeightKg
+| order by BagsPerPax desc
+
+// 11. Total weight distribution across flights
+['Airport.Flight.TypeB.LDM_v1']
+| summarize 
+    FlightCount = count(),
+    MinWeight = min(totalWeightKg),
+    AvgWeight = round(avg(totalWeightKg), 1),
+    MaxWeight = max(totalWeightKg),
+    TotalWeight = sum(totalWeightKg)
+| extend AvgWeightPerFlight = round(TotalWeight / FlightCount, 1)
+
+// 12. Load messages by route
+['Airport.Flight.TypeB.LDM_v1']
+| extend Route = strcat(origin, "-", destination)
+| summarize 
+    Flights = count(),
+    TotalPax = sum(passengers),
+    TotalBags = sum(bags),
+    TotalWeightKg = sum(totalWeightKg),
+    AvgPaxPerFlight = round(avg(passengers), 0),
+    AvgBagsPerFlight = round(avg(bags), 0)
+    by Route
+| order by Flights desc
+
+
+// ============================================================================
+// MOVEMENT MESSAGE (MVT) ANALYSIS
+// ============================================================================
+
+// 13. Recent departures with timing information
+['Airport.Flight.TypeB.MVT.DEP_v1']
+| project 
+    Time = ___time,
+    Flight = flightNumber,
+    Aircraft = aircraft,
+    Route = strcat(origin, "→", destination),
+    Scheduled = todatetime(scheduledTimeUtc),
+    Actual = todatetime(actualTimeUtc)
+| extend DelayMinutes = datetime_diff('minute', Actual, Scheduled)
+| order by Time desc
+| take 20
+
+// 14. Recent arrivals with timing information
+['Airport.Flight.TypeB.MVT.ARR_v1']
+| project 
+    Time = ___time,
+    Flight = flightNumber,
+    Aircraft = aircraft,
+    Route = strcat(origin, "→", destination),
+    Scheduled = todatetime(scheduledTimeUtc),
+    Actual = todatetime(actualTimeUtc)
+| extend DelayMinutes = datetime_diff('minute', Actual, Scheduled)
+| order by Time desc
+| take 20
+
+// 15. Departure punctuality by airline
+['Airport.Flight.TypeB.MVT.DEP_v1']
+| extend 
+    Scheduled = todatetime(scheduledTimeUtc),
+    Actual = todatetime(actualTimeUtc),
+    DelayMinutes = datetime_diff('minute', todatetime(actualTimeUtc), todatetime(scheduledTimeUtc))
+| summarize 
+    Flights = count(),
+    AvgDelayMinutes = round(avg(DelayMinutes), 1),
+    OnTimeFlights = countif(DelayMinutes <= 15),
+    DelayedFlights = countif(DelayMinutes > 15)
+    by airline
+| extend OnTimePercent = round(todouble(OnTimeFlights) * 100 / Flights, 1)
+| order by Flights desc
+
+// 16. Aircraft utilization - Departures by aircraft type
+['Airport.Flight.TypeB.MVT.DEP_v1']
+| summarize 
+    Departures = count(),
+    Airlines = dcount(airline),
+    Routes = dcount(strcat(origin, "-", destination))
+    by aircraft
+| order by Departures desc
+
+// 17. Arrival punctuality by origin airport
+['Airport.Flight.TypeB.MVT.ARR_v1']
+| extend 
+    DelayMinutes = datetime_diff('minute', todatetime(actualTimeUtc), todatetime(scheduledTimeUtc))
+| summarize 
+    Arrivals = count(),
+    AvgDelayMinutes = round(avg(DelayMinutes), 1),
+    OnTimeArrivals = countif(DelayMinutes <= 15),
+    DelayedArrivals = countif(DelayMinutes > 15)
+    by origin
+| extend OnTimePercent = round(todouble(OnTimeArrivals) * 100 / Arrivals, 1)
+| order by Arrivals desc
+
+
+// ============================================================================
+// CROSS-MESSAGE ANALYSIS
+// ============================================================================
+
+// 18. Complete flight operational timeline (LDM → MVT/DEP → MVT/ARR)
+let ldm = ['Airport.Flight.TypeB.LDM_v1']
+| project flightId, flightNumber, LDM_Time = ___time, passengers, bags, totalWeightKg;
+let dep = ['Airport.Flight.TypeB.MVT.DEP_v1']
+| project flightId, flightNumber, DEP_Time = ___time, aircraft, departureUtc = todatetime(actualTimeUtc);
+let arr = ['Airport.Flight.TypeB.MVT.ARR_v1']
+| project flightId, flightNumber, ARR_Time = ___time, arrivalUtc = todatetime(actualTimeUtc);
+ldm
+| join kind=inner dep on flightId
+| join kind=inner arr on flightId
+| project 
+    Flight = flightNumber,
+    Aircraft = aircraft,
+    Passengers = passengers,
+    Bags = bags,
+    WeightKg = totalWeightKg,
+    LDM_Sent = LDM_Time,
+    Departed = departureUtc,
+    Arrived = arrivalUtc,
+    FlightDuration = datetime_diff('minute', arrivalUtc, departureUtc)
+| order by LDM_Sent desc
+| take 20
+
+// 19. Flights missing any Type-B message (data quality check)
+let allFlights = airport_flight_typeb_all() | distinct flightId;
+let ldmFlights = ['Airport.Flight.TypeB.LDM_v1'] | distinct flightId;
+let depFlights = ['Airport.Flight.TypeB.MVT.DEP_v1'] | distinct flightId;
+let arrFlights = ['Airport.Flight.TypeB.MVT.ARR_v1'] | distinct flightId;
+allFlights
+| extend 
+    HasLDM = flightId in (ldmFlights),
+    HasDEP = flightId in (depFlights),
+    HasARR = flightId in (arrFlights)
+| where not(HasLDM) or not(HasDEP) or not(HasARR)
+| project flightId, HasLDM, HasDEP, HasARR
+
+// 20. Correlation between passenger count and bag count
+['Airport.Flight.TypeB.LDM_v1']
+| extend BagsPerPax = round(todouble(bags) / passengers, 2)
+| summarize 
+    Flights = count(),
+    AvgPassengers = round(avg(passengers), 0),
+    AvgBags = round(avg(bags), 0),
+    AvgBagsPerPax = round(avg(BagsPerPax), 2),
+    AvgWeightPerBag = round(avg(totalWeightKg / bags), 1)
+    by airline
+| order by Flights desc
+
+// 21. Flight turnaround time at destination airports
+let arrivals = ['Airport.Flight.TypeB.MVT.ARR_v1']
+| extend ArrTime = todatetime(actualTimeUtc)
+| project Destination = destination, Flight = flightNumber, ArrTime;
+let departures = ['Airport.Flight.TypeB.MVT.DEP_v1']
+| extend DepTime = todatetime(actualTimeUtc)
+| project Origin = origin, Flight = flightNumber, DepTime;
+arrivals
+| join kind=inner (departures) on $left.Destination == $right.Origin and $left.Flight == $right.Flight
+| where DepTime > ArrTime
+| extend TurnaroundMinutes = datetime_diff('minute', DepTime, ArrTime)
+| project 
+    Airport = Destination,
+    Flight,
+    Arrived = ArrTime,
+    Departed = DepTime,
+    TurnaroundMinutes
+| where TurnaroundMinutes > 0 and TurnaroundMinutes < 600
+| order by TurnaroundMinutes desc
+
+
+// ============================================================================
+// TIME-BASED ANALYSIS
+// ============================================================================
+
+// 22. Type-B message volume by hour of day
+airport_flight_typeb_all()
+| extend Hour = hourofday(___time)
+| summarize MessageCount = count() by Hour, messageType
+| order by Hour, messageType
+
+// 23. Daily Type-B message counts
+airport_flight_typeb_all()
+| extend Date = startofday(___time)
+| summarize 
+    TotalMessages = count(),
+    LDM = countif(messageType == "LDM"),
+    MVT_DEP = countif(messageType == "MVT/DEP"),
+    MVT_ARR = countif(messageType == "MVT/ARR")
+    by Date
+| order by Date desc
+
+// 24. Peak hours for departures and arrivals
+let departures = ['Airport.Flight.TypeB.MVT.DEP_v1']
+| extend Hour = hourofday(___time)
+| summarize DepCount = count() by Hour;
+let arrivals = ['Airport.Flight.TypeB.MVT.ARR_v1']
+| extend Hour = hourofday(___time)
+| summarize ArrCount = count() by Hour;
+departures
+| join kind=fullouter arrivals on Hour
+| project 
+    Hour = coalesce(Hour, Hour1),
+    Departures = coalesce(DepCount, 0),
+    Arrivals = coalesce(ArrCount, 0)
+| extend TotalMovements = Departures + Arrivals
+| order by Hour asc
+
+
+// ============================================================================
+// OPERATIONAL INSIGHTS
+// ============================================================================
+
+// 25. Busiest routes by flight frequency
+airport_flight_typeb_all()
+| extend Route = strcat(origin, "-", destination)
+| summarize 
+    Flights = dcount(flightId),
+    Airlines = dcount(airline),
+    LastFlight = max(___time)
+    by Route
+| order by Flights desc
+| take 10
+
+// 26. Airport operational metrics
+let departures = ['Airport.Flight.TypeB.MVT.DEP_v1']
+| summarize DepFlights = count() by Airport = origin;
+let arrivals = ['Airport.Flight.TypeB.MVT.ARR_v1']
+| summarize ArrFlights = count() by Airport = destination;
+departures
+| join kind=fullouter arrivals on Airport
+| project 
+    Airport = coalesce(Airport, Airport1),
+    Departures = coalesce(DepFlights, 0),
+    Arrivals = coalesce(ArrFlights, 0)
+| extend TotalMovements = Departures + Arrivals
+| order by TotalMovements desc
+
+// 27. Average baggage weight per route (from LDM messages)
+['Airport.Flight.TypeB.LDM_v1']
+| extend Route = strcat(origin, "-", destination)
+| summarize 
+    Flights = count(),
+    TotalBags = sum(bags),
+    TotalWeightKg = sum(totalWeightKg),
+    AvgBagsPerFlight = round(avg(bags), 0),
+    AvgWeightPerFlight = round(avg(totalWeightKg), 1)
+    by Route
+| extend AvgWeightPerBag = round(TotalWeightKg / TotalBags, 1)
+| order by Flights desc
+
+// 28. On-time performance summary across all airlines
+['Airport.Flight.TypeB.MVT.DEP_v1']
+| extend DelayMinutes = datetime_diff('minute', todatetime(actualTimeUtc), todatetime(scheduledTimeUtc))
+| summarize 
+    TotalFlights = count(),
+    OnTime = countif(DelayMinutes <= 15),
+    Delayed_16to30 = countif(DelayMinutes > 15 and DelayMinutes <= 30),
+    Delayed_31to60 = countif(DelayMinutes > 30 and DelayMinutes <= 60),
+    Delayed_Over60 = countif(DelayMinutes > 60),
+    AvgDelayMinutes = round(avg(DelayMinutes), 1)
+| extend 
+    OnTimePercent = round(todouble(OnTime) * 100 / TotalFlights, 1),
+    DelayedPercent = round(todouble(TotalFlights - OnTime) * 100 / TotalFlights, 1)
+
+
+// ============================================================================
+// ADVANCED ANALYTICS
+// ============================================================================
+
+// 29. Flight completion rate - Flights with all three Type-B messages
+let allFlights = ['Airport.Flight.TypeB.LDM_v1'] | distinct flightId | extend HasLDM = 1;
+let depFlights = ['Airport.Flight.TypeB.MVT.DEP_v1'] | distinct flightId | extend HasDEP = 1;
+let arrFlights = ['Airport.Flight.TypeB.MVT.ARR_v1'] | distinct flightId | extend HasARR = 1;
+allFlights
+| join kind=leftouter depFlights on flightId
+| join kind=leftouter arrFlights on flightId
+| summarize 
+    TotalFlights = count(),
+    WithLDM = countif(HasLDM == 1),
+    WithDEP = countif(HasDEP == 1),
+    WithARR = countif(HasARR == 1),
+    Complete = countif(HasLDM == 1 and HasDEP == 1 and HasARR == 1)
+| extend CompletionRate = round(todouble(Complete) * 100 / TotalFlights, 1)
+
+// 30. Baggage weight distribution by airline (percentiles)
+['Airport.Flight.TypeB.LDM_v1']
+| extend WeightPerBag = totalWeightKg / bags
+| summarize 
+    Flights = count(),
+    P25 = round(percentile(WeightPerBag, 25), 1),
+    P50_Median = round(percentile(WeightPerBag, 50), 1),
+    P75 = round(percentile(WeightPerBag, 75), 1),
+    P95 = round(percentile(WeightPerBag, 95), 1),
+    Average = round(avg(WeightPerBag), 1)
+    by airline
+| order by Flights desc
+
+
+// ============================================================================
+// REFERENCE INFORMATION
+// ============================================================================
+
+// Display table schemas
+.show table ['Airport.Flight.TypeB.LDM_v1'] schema
+.show table ['Airport.Flight.TypeB.MVT.DEP_v1'] schema
+.show table ['Airport.Flight.TypeB.MVT.ARR_v1'] schema
+
+// List all Type-B helper functions
+.show functions | where Name startswith "airport_flight_typeb"
