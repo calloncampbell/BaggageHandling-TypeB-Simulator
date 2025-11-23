@@ -1131,6 +1131,8 @@ class Simulator:
                         ),
                     )
                     emitted.add("flight_closed")
+                    # Emit Load Message (LDM) after check-in closes
+                    await self._emit_type_b_ldm(st, now_sim)
 
             # Flight departed — only when all pax are checked in and all required bags are loaded; otherwise delay timeline
             if "flight_departed" not in emitted and now_sim >= tl["depart"]:
@@ -1191,6 +1193,8 @@ class Simulator:
                         ),
                     )
                     emitted.add("flight_departed")
+                    # Emit Movement Departure message
+                    await self._emit_type_b_mvt_dep(st, now_sim)
 
             # 3) After arrival: unload, customs, belt delivery
             if now_sim >= tl["arrive"]:
@@ -1217,6 +1221,8 @@ class Simulator:
                         ),
                     )
                     emitted.add("flight_arrived")
+                    # Emit Movement Arrival message
+                    await self._emit_type_b_mvt_arr(st, now_sim)
                 await self._emit_arrival_phase(st, now_sim)
                 # If all bags delivered or withheld/not collected, we can retire the flight
                 bags: Dict[str, Bag] = st["bags"]
@@ -1330,6 +1336,191 @@ class Simulator:
                 )
         except Exception as ex:
             self._log(f"SQL update failed for flight {flight_id}: {ex}", style="red")
+
+    def _generate_type_b_ldm(self, f: Flight, st: Dict[str, Any]) -> str:
+        """Generate IATA Type-B Load Message (LDM) format.
+        
+        LDM provides final load information including passenger and baggage counts.
+        Format follows IATA standard with message type, flight details, and load data.
+        """
+        pax_list: List[Passenger] = st.get("passengers", [])
+        bags_dict: Dict[str, Bag] = st.get("bags", {})
+        
+        # Count checked-in passengers and bags
+        pax_count = sum(1 for p in pax_list if getattr(p, "checked_in", False))
+        
+        # Count bags by status (exclude lost/rejected)
+        loaded_bags = sum(1 for b in bags_dict.values() if getattr(b, "status", "") == "loaded")
+        checked_bags = sum(1 for b in bags_dict.values() if getattr(b, "status", "") in {"checked_in", "loaded"})
+        
+        # Calculate total weight
+        total_weight = sum(getattr(b, "weight_kg", 0) for b in bags_dict.values() 
+                          if getattr(b, "status", "") in {"checked_in", "loaded"})
+        
+        # Format: LDM / flight info / pax count / bag count / weight
+        # Using simplified Type-B format (real format is more complex with baggage details)
+        dep_date = f.departure_utc.strftime("%d%b").upper()
+        lines = [
+            "LDM",
+            f"{f.airline}{f.flight_number:04d}/{dep_date}.{f.origin}{f.destination}",
+            f".PAX {pax_count}",
+            f".BAG {checked_bags} T{int(total_weight)}K",
+            f".TOTAL BAGS {checked_bags}",
+        ]
+        return "\n".join(lines)
+
+    def _generate_type_b_mvt(self, f: Flight, movement_type: str, actual_time: datetime) -> str:
+        """Generate IATA Type-B Movement Message (MVT) format.
+        
+        MVT messages report aircraft movement events (departure, arrival, on-blocks).
+        
+        Args:
+            f: Flight object
+            movement_type: 'DEP' (departure), 'ARR' (arrival), or 'ONB' (on-blocks)
+            actual_time: Actual time of the movement event
+        """
+        # Format time as HHMM
+        time_str = actual_time.strftime("%H%M")
+        date_str = actual_time.strftime("%d%b").upper()
+        
+        lines = [
+            "MVT",
+            f"{f.airline}{f.flight_number:04d}/{date_str}.{f.origin}{f.destination}",
+            f"{movement_type} {time_str}",
+        ]
+        
+        # Add aircraft type
+        lines.append(f"AC {f.aircraft}")
+        
+        return "\n".join(lines)
+
+    async def _emit_type_b_ldm(self, st: Dict[str, Any], now_sim: datetime) -> None:
+        """Emit Load Message (LDM) with final passenger and baggage counts.
+        
+        Called after check-in closes to provide final load information.
+        """
+        f: Flight = st["flight"]
+        emitted: set[str] = st["emitted"]
+        
+        if "type_b_ldm" in emitted:
+            return
+        
+        pax_list: List[Passenger] = st.get("passengers", [])
+        bags_dict: Dict[str, Bag] = st.get("bags", {})
+        
+        pax_count = sum(1 for p in pax_list if getattr(p, "checked_in", False))
+        bags_count = sum(1 for b in bags_dict.values() if getattr(b, "status", "") in {"checked_in", "loaded"})
+        total_weight = sum(getattr(b, "weight_kg", 0) for b in bags_dict.values() 
+                          if getattr(b, "status", "") in {"checked_in", "loaded"})
+        
+        # Generate Type-B message
+        raw_message = self._generate_type_b_ldm(f, st)
+        
+        await self._send(
+            f"{f.origin}",
+            cloudevent(
+                "Airport.Flight.TypeB.LDM",
+                f"{f.origin}",
+                subject=f"flight/{f.flight_number}",
+                data={
+                    "flightId": f.flight_id,
+                    "flightNumber": f.flight_number,
+                    "airline": f.airline,
+                    "origin": f.origin,
+                    "destination": f.destination,
+                    "departureUtc": f.departure_utc.isoformat(),
+                    "messageType": "LDM",
+                    "rawMessage": raw_message,
+                    "loadData": {
+                        "passengers": pax_count,
+                        "bags": bags_count,
+                        "totalWeightKg": round(total_weight, 1),
+                    },
+                },
+                sim_time=now_sim,
+            ),
+        )
+        emitted.add("type_b_ldm")
+
+    async def _emit_type_b_mvt_dep(self, st: Dict[str, Any], now_sim: datetime) -> None:
+        """Emit Movement Departure (MVT/DEP) message.
+        
+        Called at actual departure time.
+        """
+        f: Flight = st["flight"]
+        emitted: set[str] = st["emitted"]
+        
+        if "type_b_mvt_dep" in emitted:
+            return
+        
+        # Generate Type-B message
+        raw_message = self._generate_type_b_mvt(f, "DEP", now_sim)
+        
+        await self._send(
+            f"{f.origin}",
+            cloudevent(
+                "Airport.Flight.TypeB.MVT.DEP",
+                f"{f.origin}",
+                subject=f"flight/{f.flight_number}",
+                data={
+                    "flightId": f.flight_id,
+                    "flightNumber": f.flight_number,
+                    "airline": f.airline,
+                    "origin": f.origin,
+                    "destination": f.destination,
+                    "aircraft": f.aircraft,
+                    "messageType": "MVT/DEP",
+                    "rawMessage": raw_message,
+                    "movementData": {
+                        "movementType": "departure",
+                        "actualTimeUtc": now_sim.isoformat(),
+                        "scheduledTimeUtc": f.departure_utc.isoformat(),
+                    },
+                },
+                sim_time=now_sim,
+            ),
+        )
+        emitted.add("type_b_mvt_dep")
+
+    async def _emit_type_b_mvt_arr(self, st: Dict[str, Any], now_sim: datetime) -> None:
+        """Emit Movement Arrival (MVT/ARR) message.
+        
+        Called at actual arrival time.
+        """
+        f: Flight = st["flight"]
+        emitted: set[str] = st["emitted"]
+        
+        if "type_b_mvt_arr" in emitted:
+            return
+        
+        # Generate Type-B message
+        raw_message = self._generate_type_b_mvt(f, "ARR", now_sim)
+        
+        await self._send(
+            f"{f.destination}",
+            cloudevent(
+                "Airport.Flight.TypeB.MVT.ARR",
+                f"{f.destination}",
+                subject=f"flight/{f.flight_number}",
+                data={
+                    "flightId": f.flight_id,
+                    "flightNumber": f.flight_number,
+                    "airline": f.airline,
+                    "origin": f.origin,
+                    "destination": f.destination,
+                    "aircraft": f.aircraft,
+                    "messageType": "MVT/ARR",
+                    "rawMessage": raw_message,
+                    "movementData": {
+                        "movementType": "arrival",
+                        "actualTimeUtc": now_sim.isoformat(),
+                        "scheduledTimeUtc": f.arrival_utc.isoformat(),
+                    },
+                },
+                sim_time=now_sim,
+            ),
+        )
+        emitted.add("type_b_mvt_arr")
 
     async def _emit_checkin_phase(self, st: Dict[str, Any], now_sim: datetime) -> None:
         f: Flight = st["flight"]
@@ -1726,6 +1917,9 @@ class Simulator:
         if t.startswith("airport.passenger."):
             # alternate 👩 and 👨
             return self._person_emoji()
+        # Type-B messages -> document icon
+        if "typeb" in t or "type-b" in t or ".ldm" in t or ".mvt" in t:
+            return "📄"
         if t.startswith("airport.flight."):
             return "✈️"
         # security/customs related baggage events -> police
