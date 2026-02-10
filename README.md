@@ -69,6 +69,8 @@ The simulator generates CloudEvents for various baggage handling and operational
 - `Airport.Flight.TypeB.MVT.DEP` - Movement message for departure
 - `Airport.Flight.TypeB.MVT.ARR` - Movement message for arrival
 
+See [TYPE_B_MESSAGES.md](TYPE_B_MESSAGES.md) for detailed documentation on IATA Type-B operational messages.
+
 ### Passenger Events
 - `Airport.Passenger.CheckedIn` - Passenger completes check-in
 
@@ -85,7 +87,7 @@ The simulator generates CloudEvents for various baggage handling and operational
 - `Airport.Baggage.Delivered` - Passenger collects bag
 - `Airport.Baggage.Lost` - Bag lost during handling
 
-See [TYPE_B_MESSAGES.md](TYPE_B_MESSAGES.md) for detailed documentation on IATA Type-B operational messages.
+
 
 ## Run
 
