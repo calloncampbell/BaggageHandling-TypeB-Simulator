@@ -1,0 +1,161 @@
+.create table typeb_flight_events (
+    id: string,
+    source: string,
+    specversion: string,
+    type: string,
+    datacontenttype: string,    
+    dataschema: string,
+    subject: string,
+    ['time']: datetime,
+    data: dynamic,
+    seriesclock: datetime
+)
+
+.alter table typeb_flight_events policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+
+.alter table typeb_flight_events policy streamingingestion enable
+
+.create-or-alter table typeb_flight_events ingestion json mapping "typeb_flight_events_mapping"
+```
+[
+    {
+        "column": "id",
+        "path": "$.id",
+        "datatype": "string",
+        "transform": null
+    },
+    {
+        "column": "source",
+        "path": "$.source",
+        "datatype": "string",
+        "transform": null
+    },
+    {
+        "column": "specversion",
+        "path": "$.specversion",
+        "datatype": "string",
+        "transform": null
+    },
+    {
+        "column": "type",
+        "path": "$.type",
+        "datatype": "string",
+        "transform": null
+    },
+    {
+        "column": "datacontenttype",
+        "path": "$.datacontenttype",
+        "datatype": "string",
+        "transform": null
+    },
+    {
+        "column": "dataschema",
+        "path": "$.dataschema",
+        "datatype": "string",
+        "transform": null
+    },
+    {
+        "column": "subject",
+        "path": "$.subject",
+        "datatype": "string",
+        "transform": null
+    },
+    {
+        "column": "time",
+        "path": "$.time",
+        "datatype": "datetime",
+        "transform": null
+    },
+    {
+        "column": "data",
+        "path": "$.data",
+        "datatype": "dynamic",
+        "transform": null
+    }
+]
+```
+
+// Example queries for Type-B operational messages
+
+// View all Type-B LDM (Load Messages)
+typeb_flight_events
+| where type == "Airport.Flight.TypeB.LDM"
+| extend flightNumber = tostring(data.flightNumber)
+| extend origin = tostring(data.origin)
+| extend destination = tostring(data.destination)
+| extend passengers = toint(data.loadData.passengers)
+| extend bags = toint(data.loadData.bags)
+| extend totalWeightKg = toreal(data.loadData.totalWeightKg)
+| extend rawMessage = tostring(data.rawMessage)
+| project ['time'], flightNumber, origin, destination, passengers, bags, totalWeightKg, rawMessage
+| order by ['time'] desc
+
+// View all Type-B MVT Departure messages
+typeb_flight_events
+| where type == "Airport.Flight.TypeB.MVT.DEP"
+| extend flightNumber = tostring(data.flightNumber)
+| extend origin = tostring(data.origin)
+| extend destination = tostring(data.destination)
+| extend aircraft = tostring(data.aircraft)
+| extend actualTimeUtc = todatetime(data.movementData.actualTimeUtc)
+| extend scheduledTimeUtc = todatetime(data.movementData.scheduledTimeUtc)
+| extend rawMessage = tostring(data.rawMessage)
+| project ['time'], flightNumber, origin, destination, aircraft, actualTimeUtc, scheduledTimeUtc, rawMessage
+| order by ['time'] desc
+
+// View all Type-B MVT Arrival messages
+typeb_flight_events
+| where type == "Airport.Flight.TypeB.MVT.ARR"
+| extend flightNumber = tostring(data.flightNumber)
+| extend origin = tostring(data.origin)
+| extend destination = tostring(data.destination)
+| extend aircraft = tostring(data.aircraft)
+| extend actualTimeUtc = todatetime(data.movementData.actualTimeUtc)
+| extend scheduledTimeUtc = todatetime(data.movementData.scheduledTimeUtc)
+| extend rawMessage = tostring(data.rawMessage)
+| project ['time'], flightNumber, origin, destination, aircraft, actualTimeUtc, scheduledTimeUtc, rawMessage
+| order by ['time'] desc
+
+// Complete flight operational timeline (LDM → MVT/DEP → MVT/ARR)
+typeb_flight_events
+| extend flightNumber = tostring(data.flightNumber)
+| extend messageType = tostring(data.messageType)
+| summarize 
+    LDM_Time = maxif(['time'], type == "Airport.Flight.TypeB.LDM"),
+    Departure_Time = maxif(['time'], type == "Airport.Flight.TypeB.MVT.DEP"),
+    Arrival_Time = maxif(['time'], type == "Airport.Flight.TypeB.MVT.ARR"),
+    Passengers = maxif(toint(data.loadData.passengers), type == "Airport.Flight.TypeB.LDM"),
+    Bags = maxif(toint(data.loadData.bags), type == "Airport.Flight.TypeB.LDM"),
+    Aircraft = maxif(tostring(data.aircraft), type has "MVT")
+    by flightNumber
+| where isnotnull(LDM_Time)
+| project flightNumber, LDM_Time, Departure_Time, Arrival_Time, Passengers, Bags, Aircraft
+| order by Departure_Time desc
+
+// Operational statistics by airport (departures)
+typeb_flight_events
+| where type == "Airport.Flight.TypeB.MVT.DEP"
+| extend origin = tostring(data.origin)
+| extend flightNumber = tostring(data.flightNumber)
+| summarize DepartureCount = count() by origin, bin(['time'], 1h)
+| order by ['time'] desc, DepartureCount desc
+
+// Load factor analysis (passengers per flight)
+typeb_flight_events
+| where type == "Airport.Flight.TypeB.LDM"
+| extend flightNumber = tostring(data.flightNumber)
+| extend passengers = toint(data.loadData.passengers)
+| extend bags = toint(data.loadData.bags)
+| extend totalWeightKg = toreal(data.loadData.totalWeightKg)
+| extend avgBagsPerPax = todouble(bags) / todouble(passengers)
+| extend avgWeightPerBag = totalWeightKg / todouble(bags)
+| project ['time'], flightNumber, passengers, bags, totalWeightKg, avgBagsPerPax, avgWeightPerBag
+| order by ['time'] desc
+
+// Extract raw IATA Type-B messages for legacy system integration
+typeb_flight_events
+| extend flightNumber = tostring(data.flightNumber)
+| extend messageType = tostring(data.messageType)
+| extend rawMessage = tostring(data.rawMessage)
+| project ['time'], flightNumber, messageType, rawMessage
+| order by ['time'] desc

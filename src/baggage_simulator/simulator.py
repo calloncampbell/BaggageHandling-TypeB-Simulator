@@ -176,6 +176,9 @@ class SimulatorConfig:
     eventhub_name: str | None
     sql_conn: str | None
     sql_table: str = "dbo.Flights"
+    # Optional separate Event Hub for Type-B operational messages
+    typeb_eventhub_conn: str | None = None
+    typeb_eventhub_name: str | None = None
     # Real-time batching window for Event Hubs (seconds). Events for the same
     # flight/partition key are buffered and sent together within this window.
     eventhub_batch_window_seconds: float = 5.0
@@ -231,6 +234,7 @@ class Passenger:
 class Simulator:
     # attribute declarations for static analysis
     _producer: Any | None
+    _producer_typeb: Any | None  # Optional separate producer for Type-B operational messages
     _conn: Any | None
     _active_flights: Dict[str, Any]
     _console: Optional[Console]
@@ -274,6 +278,7 @@ class Simulator:
             self._routes.append(route)
             self._routes.append(route.reverse)
         self._producer = None
+        self._producer_typeb = None
         self._conn = None
         self._active_flights = {}
         self._console = Console(stderr=True) if cfg.enable_console else None
@@ -339,6 +344,11 @@ class Simulator:
                 raise RuntimeError("Event Hubs connection and name required")
             self._producer = EventHubProducerClient.from_connection_string(
                 conn_str=self.cfg.eventhub_conn, eventhub_name=self.cfg.eventhub_name
+            )
+        # Initialize separate Type-B Event Hub producer if configured
+        if not self._producer_typeb and self.cfg.typeb_eventhub_conn and self.cfg.typeb_eventhub_name:
+            self._producer_typeb = EventHubProducerClient.from_connection_string(
+                conn_str=self.cfg.typeb_eventhub_conn, eventhub_name=self.cfg.typeb_eventhub_name
             )
         if not self._conn:
             if not self.cfg.sql_conn:
@@ -627,11 +637,14 @@ class Simulator:
             self._live = None
         # Flush any outstanding EH buffers before closing
         with contextlib.suppress(Exception):
-            if self._producer:
+            if self._producer or self._producer_typeb:
                 await self._flush_due_eventhub_buffers(force=True)
         with contextlib.suppress(Exception):
             if self._producer:
                 await self._producer.close()
+        with contextlib.suppress(Exception):
+            if self._producer_typeb:
+                await self._producer_typeb.close()
         with contextlib.suppress(Exception):
             if self._conn:
                 self._conn.close()
@@ -1131,6 +1144,8 @@ class Simulator:
                         ),
                     )
                     emitted.add("flight_closed")
+                    # Emit Load Message (LDM) after check-in closes
+                    await self._emit_type_b_ldm(st, now_sim)
 
             # Flight departed — only when all pax are checked in and all required bags are loaded; otherwise delay timeline
             if "flight_departed" not in emitted and now_sim >= tl["depart"]:
@@ -1191,6 +1206,8 @@ class Simulator:
                         ),
                     )
                     emitted.add("flight_departed")
+                    # Emit Movement Departure message
+                    await self._emit_type_b_mvt_dep(st, now_sim)
 
             # 3) After arrival: unload, customs, belt delivery
             if now_sim >= tl["arrive"]:
@@ -1217,6 +1234,8 @@ class Simulator:
                         ),
                     )
                     emitted.add("flight_arrived")
+                    # Emit Movement Arrival message
+                    await self._emit_type_b_mvt_arr(st, now_sim)
                 await self._emit_arrival_phase(st, now_sim)
                 # If all bags delivered or withheld/not collected, we can retire the flight
                 bags: Dict[str, Bag] = st["bags"]
@@ -1330,6 +1349,191 @@ class Simulator:
                 )
         except Exception as ex:
             self._log(f"SQL update failed for flight {flight_id}: {ex}", style="red")
+
+    def _generate_type_b_ldm(self, f: Flight, st: Dict[str, Any]) -> str:
+        """Generate IATA Type-B Load Message (LDM) format.
+        
+        LDM provides final load information including passenger and baggage counts.
+        Format follows IATA standard with message type, flight details, and load data.
+        """
+        pax_list: List[Passenger] = st.get("passengers", [])
+        bags_dict: Dict[str, Bag] = st.get("bags", {})
+        
+        # Count checked-in passengers and bags
+        pax_count = sum(1 for p in pax_list if getattr(p, "checked_in", False))
+        
+        # Count bags by status (exclude lost/rejected)
+        loaded_bags = sum(1 for b in bags_dict.values() if getattr(b, "status", "") == "loaded")
+        checked_bags = sum(1 for b in bags_dict.values() if getattr(b, "status", "") in {"checked_in", "loaded"})
+        
+        # Calculate total weight
+        total_weight = sum(getattr(b, "weight_kg", 0) for b in bags_dict.values() 
+                          if getattr(b, "status", "") in {"checked_in", "loaded"})
+        
+        # Format: LDM / flight info / pax count / bag count / weight
+        # Using simplified Type-B format (real format is more complex with baggage details)
+        dep_date = f.departure_utc.strftime("%d%b").upper()
+        lines = [
+            "LDM",
+            f"{f.flight_number}/{dep_date}.{f.origin}{f.destination}",
+            f".PAX {pax_count}",
+            f".BAG {checked_bags} T{int(total_weight)}K",
+            f".TOTAL BAGS {checked_bags}",
+        ]
+        return "\n".join(lines)
+
+    def _generate_type_b_mvt(self, f: Flight, movement_type: str, actual_time: datetime) -> str:
+        """Generate IATA Type-B Movement Message (MVT) format.
+        
+        MVT messages report aircraft movement events (departure, arrival, on-blocks).
+        
+        Args:
+            f: Flight object
+            movement_type: 'DEP' (departure), 'ARR' (arrival), or 'ONB' (on-blocks)
+            actual_time: Actual time of the movement event
+        """
+        # Format time as HHMM
+        time_str = actual_time.strftime("%H%M")
+        date_str = actual_time.strftime("%d%b").upper()
+        
+        lines = [
+            "MVT",
+            f"{f.flight_number}/{date_str}.{f.origin}{f.destination}",
+            f"{movement_type} {time_str}",
+        ]
+        
+        # Add aircraft type
+        lines.append(f"AC {f.aircraft}")
+        
+        return "\n".join(lines)
+
+    async def _emit_type_b_ldm(self, st: Dict[str, Any], now_sim: datetime) -> None:
+        """Emit Load Message (LDM) with final passenger and baggage counts.
+        
+        Called after check-in closes to provide final load information.
+        """
+        f: Flight = st["flight"]
+        emitted: set[str] = st["emitted"]
+        
+        if "type_b_ldm" in emitted:
+            return
+        
+        pax_list: List[Passenger] = st.get("passengers", [])
+        bags_dict: Dict[str, Bag] = st.get("bags", {})
+        
+        pax_count = sum(1 for p in pax_list if getattr(p, "checked_in", False))
+        bags_count = sum(1 for b in bags_dict.values() if getattr(b, "status", "") in {"checked_in", "loaded"})
+        total_weight = sum(getattr(b, "weight_kg", 0) for b in bags_dict.values() 
+                          if getattr(b, "status", "") in {"checked_in", "loaded"})
+        
+        # Generate Type-B message
+        raw_message = self._generate_type_b_ldm(f, st)
+        
+        await self._send(
+            f"{f.origin}",
+            cloudevent(
+                "Airport.Flight.TypeB.LDM",
+                f"{f.origin}",
+                subject=f"flight/{f.flight_number}",
+                data={
+                    "flightId": f.flight_id,
+                    "flightNumber": f.flight_number,
+                    "airline": f.airline,
+                    "origin": f.origin,
+                    "destination": f.destination,
+                    "departureUtc": f.departure_utc.isoformat(),
+                    "messageType": "LDM",
+                    "rawMessage": raw_message,
+                    "loadData": {
+                        "passengers": pax_count,
+                        "bags": bags_count,
+                        "totalWeightKg": round(total_weight, 1),
+                    },
+                },
+                sim_time=now_sim,
+            ),
+        )
+        emitted.add("type_b_ldm")
+
+    async def _emit_type_b_mvt_dep(self, st: Dict[str, Any], now_sim: datetime) -> None:
+        """Emit Movement Departure (MVT/DEP) message.
+        
+        Called at actual departure time.
+        """
+        f: Flight = st["flight"]
+        emitted: set[str] = st["emitted"]
+        
+        if "type_b_mvt_dep" in emitted:
+            return
+        
+        # Generate Type-B message
+        raw_message = self._generate_type_b_mvt(f, "DEP", now_sim)
+        
+        await self._send(
+            f"{f.origin}",
+            cloudevent(
+                "Airport.Flight.TypeB.MVT.DEP",
+                f"{f.origin}",
+                subject=f"flight/{f.flight_number}",
+                data={
+                    "flightId": f.flight_id,
+                    "flightNumber": f.flight_number,
+                    "airline": f.airline,
+                    "origin": f.origin,
+                    "destination": f.destination,
+                    "aircraft": f.aircraft,
+                    "messageType": "MVT/DEP",
+                    "rawMessage": raw_message,
+                    "movementData": {
+                        "movementType": "departure",
+                        "actualTimeUtc": now_sim.isoformat(),
+                        "scheduledTimeUtc": f.departure_utc.isoformat(),
+                    },
+                },
+                sim_time=now_sim,
+            ),
+        )
+        emitted.add("type_b_mvt_dep")
+
+    async def _emit_type_b_mvt_arr(self, st: Dict[str, Any], now_sim: datetime) -> None:
+        """Emit Movement Arrival (MVT/ARR) message.
+        
+        Called at actual arrival time.
+        """
+        f: Flight = st["flight"]
+        emitted: set[str] = st["emitted"]
+        
+        if "type_b_mvt_arr" in emitted:
+            return
+        
+        # Generate Type-B message
+        raw_message = self._generate_type_b_mvt(f, "ARR", now_sim)
+        
+        await self._send(
+            f"{f.destination}",
+            cloudevent(
+                "Airport.Flight.TypeB.MVT.ARR",
+                f"{f.destination}",
+                subject=f"flight/{f.flight_number}",
+                data={
+                    "flightId": f.flight_id,
+                    "flightNumber": f.flight_number,
+                    "airline": f.airline,
+                    "origin": f.origin,
+                    "destination": f.destination,
+                    "aircraft": f.aircraft,
+                    "messageType": "MVT/ARR",
+                    "rawMessage": raw_message,
+                    "movementData": {
+                        "movementType": "arrival",
+                        "actualTimeUtc": now_sim.isoformat(),
+                        "scheduledTimeUtc": f.arrival_utc.isoformat(),
+                    },
+                },
+                sim_time=now_sim,
+            ),
+        )
+        emitted.add("type_b_mvt_arr")
 
     async def _emit_checkin_phase(self, st: Dict[str, Any], now_sim: datetime) -> None:
         f: Flight = st["flight"]
@@ -1627,8 +1831,22 @@ class Simulator:
                 )
             return
 
+        # Determine which producer to use based on event type
+        # Type-B operational messages go to separate Event Hub if configured
+        event_type_str = ""
+        if isinstance(evt, CloudEvent):
+            try:
+                event_type_str = str(evt.get("type") or evt["type"])
+            except Exception:
+                pass
+        elif isinstance(evt, dict):
+            event_type_str = str(evt.get("type") or "")
+        
+        is_typeb = "TypeB" in event_type_str or "Type-B" in event_type_str
+        producer = self._producer_typeb if (is_typeb and self._producer_typeb) else self._producer
+        
         # Ensure producer available
-        assert self._producer
+        assert producer
         mode = getattr(self.cfg, "ce_mode", "structured")
 
         # Normalize event type / subject / payload and collect CloudEvent attrs
@@ -1710,10 +1928,13 @@ class Simulator:
                     pass
 
         # Buffer by partition key (flightId preferred) for real-time batching
+        # Use separate buffer namespace for Type-B messages when using separate Event Hub
         pk = str(payload.get("flightId") or subject or "")
         key = pk or "__default__"
-        # enqueue
-        self._eh_buffers[key].append((pk if pk else None, data, event_type, subject, payload))
+        if is_typeb and self._producer_typeb:
+            key = f"typeb:{key}"
+        # enqueue with producer reference
+        self._eh_buffers[key].append((pk if pk else None, data, event_type, subject, payload, producer))
         # record first-seen time
         self._eh_first_seen.setdefault(key, time.monotonic())
 
@@ -1726,6 +1947,9 @@ class Simulator:
         if t.startswith("airport.passenger."):
             # alternate 👩 and 👨
             return self._person_emoji()
+        # Type-B messages -> document icon
+        if "typeb" in t or "type-b" in t or ".ldm" in t or ".mvt" in t:
+            return "📄"
         if t.startswith("airport.flight."):
             return "✈️"
         # security/customs related baggage events -> police
@@ -1753,8 +1977,9 @@ class Simulator:
         """Flush Event Hubs buffers that have reached the batching window or all when force=True.
 
         Groups buffered EventData by partition key and sends them using size-aware batches.
+        Handles both standard and Type-B producers.
         """
-        if not self._producer:
+        if not self._producer and not self._producer_typeb:
             # Nothing to flush in dry-run or when producer not initialised
             self._eh_buffers.clear()
             self._eh_first_seen.clear()
@@ -1773,17 +1998,21 @@ class Simulator:
                 self._eh_buffers.pop(key, None)
                 self._eh_first_seen.pop(key, None)
                 continue
-            # Partition key (None allowed)
+            # Extract partition key and producer from first item
+            # Buffer entries now include producer reference: (pk, data, event_type, subject, payload, producer)
             pk = items[0][0]
+            producer = items[0][5] if len(items[0]) > 5 else self._producer
+            
             # Send in size-constrained batches
             i = 0
             sent_count = 0
             try:
                 while i < len(items):
-                    batch = await self._producer.create_batch(partition_key=pk)
+                    batch = await producer.create_batch(partition_key=pk)
                     # pack as many as fit
                     while i < len(items):
-                        _, data, _, _, _ = items[i]
+                        item = items[i]
+                        _, data, _, _, _ = item[:5]
                         try:
                             batch.add(data)
                             i += 1
@@ -1791,14 +2020,16 @@ class Simulator:
                         except ValueError:
                             break
                     if len(batch) > 0:  # type: ignore[arg-type]
-                        await self._producer.send_batch(batch)
+                        await producer.send_batch(batch)
                 # Log a single summary line for the batch flush
                 # Try to report a representative event
-                _, _, evt_type, subj, payload = items[-1]
+                item = items[-1]
+                _, _, evt_type, subj, payload = item[:5]
                 if getattr(self.cfg, "verbose", False):
                     emoji = self._emoji_for_event(str(evt_type or ""))
+                    hub_type = " [Type-B]" if key.startswith("typeb:") else ""
                     self._log(
-                        f"{emoji} Sent batch x{sent_count} flight={payload.get('flightId','')} pk={pk or ''}",
+                        f"{emoji} Sent batch x{sent_count}{hub_type} flight={payload.get('flightId','')} pk={pk or ''}",
                         style="green",
                     )
             except Exception as ex:

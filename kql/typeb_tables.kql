@@ -1,0 +1,257 @@
+// ============================================================================
+// Type-B Message Tables
+// ============================================================================
+// This file contains Kusto table definitions for IATA Type-B operational 
+// messages (LDM, MVT/DEP, MVT/ARR) emitted by the baggage simulator.
+//
+// These tables parse CloudEvents containing Type-B messages and extract
+// both structured data and raw message formats for operational analysis.
+// ============================================================================
+
+
+// ============================================================================
+// LDM (Load Message) Table
+// ============================================================================
+// Captures final load information after check-in closes
+// Event Type: Airport.Flight.TypeB.LDM
+
+.create table ['Airport.Flight.TypeB.LDM_v1']
+(
+    ___id           : string,
+    ___source       : string,
+    ___type         : string,
+    ___time         : datetime,
+    ___subject      : string,
+    flightId        : string,
+    flightNumber    : string,
+    airline         : string,
+    origin          : string,
+    destination     : string,
+    departureUtc    : string,
+    messageType     : string,
+    rawMessage      : string,
+    passengers      : long,
+    bags            : long,
+    totalWeightKg   : real
+)
+
+.alter table ['Airport.Flight.TypeB.LDM_v1'] policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+
+.alter table ['Airport.Flight.TypeB.LDM_v1'] policy update
+```
+[
+  {
+    "IsEnabled": true,
+    "Source": "typeb_flight_events",
+    "Query": "let msgs = typeb_flight_events
+| where type == 'Airport.Flight.TypeB.LDM' and isnull(array_length(data))==true;
+let arrays = typeb_flight_events
+| where type == 'Airport.Flight.TypeB.LDM' and isnull(array_length(data))==false
+| mv-expand data;
+msgs
+| union arrays
+| project
+    ___id         = tostring(id),
+    ___source     = tostring(source),
+    ___type       = tostring(type),
+    ___time       = todatetime(['time']),
+    ___subject    = tostring(subject),
+    flightId      = tostring(data.flightId),
+    flightNumber  = tostring(data.flightNumber),
+    airline       = tostring(data.airline),
+    origin        = tostring(data.origin),
+    destination   = tostring(data.destination),
+    departureUtc  = tostring(data.departureUtc),
+    messageType   = tostring(data.messageType),
+    rawMessage    = tostring(data.rawMessage),
+    passengers    = tolong(data.loadData.passengers),
+    bags          = tolong(data.loadData.bags),
+    totalWeightKg = toreal(data.loadData.totalWeightKg)",
+    "IsTransactional": false,
+    "PropagateIngestionProperties": false
+  }
+]
+```
+
+
+// ============================================================================
+// MVT/DEP (Movement Departure) Table
+// ============================================================================
+// Captures actual departure time when aircraft departs
+// Event Type: Airport.Flight.TypeB.MVT.DEP
+
+.create table ['Airport.Flight.TypeB.MVT.DEP_v1']
+(
+    ___id              : string,
+    ___source          : string,
+    ___type            : string,
+    ___time            : datetime,
+    ___subject         : string,
+    flightId           : string,
+    flightNumber       : string,
+    airline            : string,
+    origin             : string,
+    destination        : string,
+    aircraft           : string,
+    messageType        : string,
+    rawMessage         : string,
+    movementType       : string,
+    actualTimeUtc      : string,
+    scheduledTimeUtc   : string
+)
+
+.alter table ['Airport.Flight.TypeB.MVT.DEP_v1'] policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+
+.alter table ['Airport.Flight.TypeB.MVT.DEP_v1'] policy update
+```
+[
+  {
+    "IsEnabled": true,
+    "Source": "typeb_flight_events",
+    "Query": "let msgs = typeb_flight_events
+| where type == 'Airport.Flight.TypeB.MVT.DEP' and isnull(array_length(data))==true;
+let arrays = typeb_flight_events
+| where type == 'Airport.Flight.TypeB.MVT.DEP' and isnull(array_length(data))==false
+| mv-expand data;
+msgs
+| union arrays
+| project
+    ___id            = tostring(id),
+    ___source        = tostring(source),
+    ___type          = tostring(type),
+    ___time          = todatetime(['time']),
+    ___subject       = tostring(subject),
+    flightId         = tostring(data.flightId),
+    flightNumber     = tostring(data.flightNumber),
+    airline          = tostring(data.airline),
+    origin           = tostring(data.origin),
+    destination      = tostring(data.destination),
+    aircraft         = tostring(data.aircraft),
+    messageType      = tostring(data.messageType),
+    rawMessage       = tostring(data.rawMessage),
+    movementType     = tostring(data.movementData.movementType),
+    actualTimeUtc    = tostring(data.movementData.actualTimeUtc),
+    scheduledTimeUtc = tostring(data.movementData.scheduledTimeUtc)",
+    "IsTransactional": false,
+    "PropagateIngestionProperties": false
+  }
+]
+```
+
+
+// ============================================================================
+// MVT/ARR (Movement Arrival) Table
+// ============================================================================
+// Captures actual arrival time when aircraft arrives at destination
+// Event Type: Airport.Flight.TypeB.MVT.ARR
+
+.create table ['Airport.Flight.TypeB.MVT.ARR_v1']
+(
+    ___id              : string,
+    ___source          : string,
+    ___type            : string,
+    ___time            : datetime,
+    ___subject         : string,
+    flightId           : string,
+    flightNumber       : string,
+    airline            : string,
+    origin             : string,
+    destination        : string,
+    aircraft           : string,
+    messageType        : string,
+    rawMessage         : string,
+    movementType       : string,
+    actualTimeUtc      : string,
+    scheduledTimeUtc   : string
+)
+
+.alter table ['Airport.Flight.TypeB.MVT.ARR_v1'] policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+
+.alter table ['Airport.Flight.TypeB.MVT.ARR_v1'] policy update
+```
+[
+  {
+    "IsEnabled": true,
+    "Source": "typeb_flight_events",
+    "Query": "let msgs = typeb_flight_events
+| where type == 'Airport.Flight.TypeB.MVT.ARR' and isnull(array_length(data))==true;
+let arrays = typeb_flight_events
+| where type == 'Airport.Flight.TypeB.MVT.ARR' and isnull(array_length(data))==false
+| mv-expand data;
+msgs
+| union arrays
+| project
+    ___id            = tostring(id),
+    ___source        = tostring(source),
+    ___type          = tostring(type),
+    ___time          = todatetime(['time']),
+    ___subject       = tostring(subject),
+    flightId         = tostring(data.flightId),
+    flightNumber     = tostring(data.flightNumber),
+    airline          = tostring(data.airline),
+    origin           = tostring(data.origin),
+    destination      = tostring(data.destination),
+    aircraft         = tostring(data.aircraft),
+    messageType      = tostring(data.messageType),
+    rawMessage       = tostring(data.rawMessage),
+    movementType     = tostring(data.movementData.movementType),
+    actualTimeUtc    = tostring(data.movementData.actualTimeUtc),
+    scheduledTimeUtc = tostring(data.movementData.scheduledTimeUtc)",
+    "IsTransactional": false,
+    "PropagateIngestionProperties": false
+  }
+]
+```
+
+
+// ============================================================================
+// Legacy Function Aliases
+// ============================================================================
+// Provides backward-compatible function names for table access
+
+.create-or-alter function airport_flight_typeb_ldm() {
+    ['Airport.Flight.TypeB.LDM_v1']
+}
+
+.create-or-alter function airport_flight_typeb_mvt_dep() {
+    ['Airport.Flight.TypeB.MVT.DEP_v1']
+}
+
+.create-or-alter function airport_flight_typeb_mvt_arr() {
+    ['Airport.Flight.TypeB.MVT.ARR_v1']
+}
+
+
+// ============================================================================
+// Unified Type-B Messages View
+// ============================================================================
+// Combines all Type-B message types into a single view for easier querying
+
+.create-or-alter function airport_flight_typeb_all() {
+    let ldm = ['Airport.Flight.TypeB.LDM_v1']
+    | extend 
+        aircraft = "",
+        movementType = "",
+        actualTimeUtc = "",
+        scheduledTimeUtc = "",
+        passengers = passengers,
+        bags = bags,
+        totalWeightKg = totalWeightKg;
+    let dep = ['Airport.Flight.TypeB.MVT.DEP_v1']
+    | extend 
+        passengers = long(null),
+        bags = long(null),
+        totalWeightKg = real(null);
+    let arr = ['Airport.Flight.TypeB.MVT.ARR_v1']
+    | extend 
+        passengers = long(null),
+        bags = long(null),
+        totalWeightKg = real(null);
+    union ldm, dep, arr
+    | project 
+        ___id, ___source, ___type, ___time, ___subject,
+        flightId, flightNumber, airline, origin, destination,
+        messageType, rawMessage,
+        aircraft, movementType, actualTimeUtc, scheduledTimeUtc,
+        passengers, bags, totalWeightKg
+}

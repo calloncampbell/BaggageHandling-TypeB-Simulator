@@ -27,6 +27,16 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
         default=os.getenv("EVENTHUB_NAME"),
         help="Event Hub name (env: EVENTHUB_NAME)",
     )
+    eh.add_argument(
+        "--typeb-eventhub-conn",
+        default=os.getenv("TYPEB_EVENTHUB_CONNECTION_STRING"),
+        help="Optional separate Azure Event Hubs connection string for Type-B operational messages (env: TYPEB_EVENTHUB_CONNECTION_STRING)",
+    )
+    eh.add_argument(
+        "--typeb-eventhub-name",
+        default=os.getenv("TYPEB_EVENTHUB_NAME"),
+        help="Optional separate Event Hub name for Type-B operational messages (env: TYPEB_EVENTHUB_NAME)",
+    )
 
     # SQL Server
     sql = parser.add_argument_group("SQL Server")
@@ -216,9 +226,23 @@ def main(argv: Optional[list[str]] = None) -> None:
         except Exception:
             eh_name = ns.eventhub_name
 
+    # Extract Type-B Event Hub name from connection string if not explicitly provided
+    typeb_eh_name = ns.typeb_eventhub_name
+    typeb_eh_conn = ns.typeb_eventhub_conn
+    if not typeb_eh_name and isinstance(typeb_eh_conn, str) and typeb_eh_conn:
+        try:
+            for part in typeb_eh_conn.split(";"):
+                if part.strip().lower().startswith("entitypath="):
+                    typeb_eh_name = part.split("=", 1)[1]
+                    break
+        except Exception:
+            typeb_eh_name = ns.typeb_eventhub_name
+
     cfg = SimulatorConfig(
         eventhub_conn=ns.eventhub_conn,
         eventhub_name=eh_name,
+        typeb_eventhub_conn=typeb_eh_conn,
+        typeb_eventhub_name=typeb_eh_name,
         sql_conn=ns.sql_conn,
         sql_table=ns.sql_table,
         seed=ns.seed,

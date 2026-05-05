@@ -1,10 +1,15 @@
 # Baggage Handling Simulator
 
-A Python CLI that simulates airport baggage handling and publishes baggage and
-passenger state changes as CloudEvents to an Azure Event Hubs or Microsoft
-Fabric Eventstream endpoint simulating an airport baggage handling systems,
-while persisting flight schedules to SQL Server, simulating an airline
-operations system.
+A Python CLI that simulates airport baggage handling and publishes baggage,
+passenger, and operational state changes as CloudEvents to Azure Event Hubs or
+Microsoft Fabric Eventstream endpoints, while persisting flight schedules to
+SQL Server.
+
+The simulator generates:
+- **Baggage tracking events** - check-in, screening, loading, unloading, delivery
+- **Passenger events** - check-in, boarding
+- **Flight lifecycle events** - scheduled, closed, departed, arrived
+- **IATA Type-B operational messages** - LDM (Load Message), MVT (Movement) departure/arrival
 
 The purpose of the simulator is to provide a realistic event stream and
 backing store for testing and demonstrating event-driven architectures,
@@ -22,16 +27,66 @@ pip install -e .
 
 Set the following environment variables or pass flags:
 
+### Basic Configuration (All Events to Single Event Hub)
+
 - EVENTHUB_CONNECTION_STRING
 - EVENTHUB_NAME
 - SQLSERVER_CONNECTION_STRING
 - SQLSERVER_FLIGHTS_TABLE (optional, default dbo.Flights)
+
+### Advanced: Separate Event Hub for Type-B Operational Messages
+
+For production deployments, you can route IATA Type-B operational messages (LDM, MVT/DEP, MVT/ARR) 
+to a separate Event Hub, enabling:
+- Independent scaling for operational vs baggage tracking systems
+- Different retention policies per message type
+- Isolated security and access control
+- Separate consumer groups for airline operations vs baggage handling
+
+Additional environment variables:
+- TYPEB_EVENTHUB_CONNECTION_STRING (optional)
+- TYPEB_EVENTHUB_NAME (optional)
+
+When these are not set, all messages go to the main Event Hub.
 
 Create the SQL table:
 
 ```sql
 :r .\sql\create_flights.sql
 ```
+
+## Event Types Generated
+
+The simulator generates CloudEvents for various baggage handling and operational scenarios:
+
+### Flight Lifecycle
+- `Airport.Flight.Closed` - Check-in closes, final passenger/baggage counts available
+- `Airport.Flight.Departed` - Aircraft departs
+- `Airport.Flight.Arrived` - Aircraft arrives at destination
+
+### Type-B Operational Messages (IATA Standard)
+- `Airport.Flight.TypeB.LDM` - Load Message with final passenger/baggage counts
+- `Airport.Flight.TypeB.MVT.DEP` - Movement message for departure
+- `Airport.Flight.TypeB.MVT.ARR` - Movement message for arrival
+
+See [TYPE_B_MESSAGES.md](TYPE_B_MESSAGES.md) for detailed documentation on IATA Type-B operational messages.
+
+### Passenger Events
+- `Airport.Passenger.CheckedIn` - Passenger completes check-in
+
+### Baggage Events
+- `Airport.Baggage.CheckedIn` - Bag accepted at check-in
+- `Airport.Baggage.Screened` - Bag passes security screening
+- `Airport.Baggage.Inspected` - Bag selected for manual inspection
+- `Airport.Baggage.Rejected` - Bag rejected at screening
+- `Airport.Baggage.Loaded` - Bag loaded onto aircraft
+- `Airport.Baggage.Unloaded` - Bag unloaded at destination
+- `Airport.Baggage.CustomsCleared` - Bag clears customs
+- `Airport.Baggage.Withheld` - Bag withheld by customs
+- `Airport.Baggage.ArrivedAtBelt` - Bag placed on baggage claim belt
+- `Airport.Baggage.Delivered` - Passenger collects bag
+- `Airport.Baggage.Lost` - Bag lost during handling
+
 
 
 ## Run
@@ -43,9 +98,15 @@ bhsim --dry-run --clock-speed 120 --flight-interval-minutes 5 --duration-minutes
 # Optional: show per-event/batch summaries in dry-run
 bhsim --dry-run --verbose --clock-speed 120 --flight-interval-minutes 5 --duration-minutes 2
 
-# Live: publish to Event Hubs and insert into SQL Server
+# Live: publish to Event Hubs and insert into SQL Server (single Event Hub)
 bhsim --clock-speed 120 --flight-interval-minutes 5 --duration-minutes 2 \
   --eventhub-conn $env:EVENTHUB_CONNECTION_STRING --eventhub-name $env:EVENTHUB_NAME \
+  --sql-conn $env:SQLSERVER_CONNECTION_STRING
+
+# Production: separate Event Hub for Type-B operational messages
+bhsim --clock-speed 120 --flight-interval-minutes 5 \
+  --eventhub-conn $env:EVENTHUB_CONNECTION_STRING --eventhub-name $env:EVENTHUB_NAME \
+  --typeb-eventhub-conn $env:TYPEB_EVENTHUB_CONNECTION_STRING --typeb-eventhub-name $env:TYPEB_EVENTHUB_NAME \
   --sql-conn $env:SQLSERVER_CONNECTION_STRING
 ```
 
@@ -53,6 +114,8 @@ bhsim --clock-speed 120 --flight-interval-minutes 5 --duration-minutes 2 \
 
 - Events use CloudEvents 1.0 JSON. Partition key is flightId for ordering per-flight.
 - CloudEvents encoding can be set via `--ce-mode structured|binary` (default `structured`).
+- **Type-B Messages**: The simulator generates IATA Type-B operational messages (LDM, MVT/DEP, MVT/ARR) as CloudEvents with both raw teletype format and structured data. See [TYPE_B_MESSAGES.md](TYPE_B_MESSAGES.md) for details.
+- **Dual Event Hub Support**: Type-B operational messages can optionally be routed to a separate Event Hub for production isolation (see configuration above).
 - Actual flight times: when a flight departs/arrives, the simulator updates `dbo.Flights` with `ActualDepartureUtc` and `ActualArrivalUtc`.
 - Additional markers: when check-in closes the simulator updates `CheckinClosedUtc`; when all bags have been unloaded after arrival it updates `CompletedUtc`.
 - Flight lifecycle events are emitted: Airport.Flight.Closed (end of check-in), Airport.Flight.Departed (at departure), Airport.Flight.Arrived (at arrival).
@@ -74,6 +137,8 @@ Arguments are also grouped in the CLI help (`bhsim -h`). Environment variables s
 - Event Hubs
   - `--eventhub-conn`: Azure Event Hubs connection string. Default: `$env:EVENTHUB_CONNECTION_STRING`.
   - `--eventhub-name`: Event Hub name. Default: `$env:EVENTHUB_NAME`. If omitted, the simulator will try to extract it from `EntityPath=` in the connection string.
+  - `--typeb-eventhub-conn`: Optional separate Azure Event Hubs connection string for Type-B operational messages. Default: `$env:TYPEB_EVENTHUB_CONNECTION_STRING`.
+  - `--typeb-eventhub-name`: Optional separate Event Hub name for Type-B operational messages. Default: `$env:TYPEB_EVENTHUB_NAME`. If omitted, the simulator will try to extract it from `EntityPath=` in the connection string.
 
 - SQL Server
   - `--sql-conn`: SQL Server ODBC connection string. Default: `$env:SQLSERVER_CONNECTION_STRING`.
