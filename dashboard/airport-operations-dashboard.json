@@ -449,7 +449,13 @@
         "map__latitudeColumn": "lat",
         "map__longitudeColumn": "lon",
         "map__bubbleFormat": "bubble",
-        "map__minBubbleSizeColumn": "Bags"
+        "map__minBubbleSizeColumn": "Bags",
+        "yColumns": [
+          "Bags"
+        ],
+        "seriesColumns": [
+          "Airport"
+        ]
       }
     },
     {
@@ -471,7 +477,13 @@
         "map__latitudeColumn": "lat",
         "map__longitudeColumn": "lon",
         "map__bubbleFormat": "bubble",
-        "map__minBubbleSizeColumn": "Exceptions"
+        "map__minBubbleSizeColumn": "Exceptions",
+        "yColumns": [
+          "Exceptions"
+        ],
+        "seriesColumns": [
+          "Airport"
+        ]
       }
     },
     {
