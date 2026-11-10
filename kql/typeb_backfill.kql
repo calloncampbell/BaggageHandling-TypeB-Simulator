@@ -24,6 +24,44 @@ typeb_flight_events
     bags          = tolong(data.loadData.bags),
     totalWeightKg = toreal(data.loadData.totalWeightKg)
 
-// For the MVT tables, copy the project list from the matching update policy in typeb_tables.kql and change the type filter:
-//   .set-or-append ['Airport.Flight.TypeB.MVT.DEP_v1'] <| typeb_flight_events | where type == 'Airport.Flight.TypeB.MVT.DEP' | project ...
-//   .set-or-append ['Airport.Flight.TypeB.MVT.ARR_v1'] <| typeb_flight_events | where type == 'Airport.Flight.TypeB.MVT.ARR' | project ...
+.set-or-append ['Airport.Flight.TypeB.MVT.DEP_v1'] <|
+typeb_flight_events
+| where type == 'Airport.Flight.TypeB.MVT.DEP'
+| project
+    ___id            = tostring(id),
+    ___source        = tostring(source),
+    ___type          = tostring(type),
+    ___time          = todatetime(['time']),
+    ___subject       = tostring(subject),
+    flightId         = tostring(data.flightId),
+    flightNumber     = tostring(data.flightNumber),
+    airline          = tostring(data.airline),
+    origin           = tostring(data.origin),
+    destination      = tostring(data.destination),
+    aircraft         = tostring(data.aircraft),
+    messageType      = tostring(data.messageType),
+    rawMessage       = tostring(data.rawMessage),
+    movementType     = tostring(data.movementData.movementType),
+    actualTimeUtc    = tostring(data.movementData.actualTimeUtc),
+    scheduledTimeUtc = tostring(data.movementData.scheduledTimeUtc)
+
+.set-or-append ['Airport.Flight.TypeB.MVT.ARR_v1'] <|
+typeb_flight_events
+| where type == 'Airport.Flight.TypeB.MVT.ARR'
+| project
+    ___id            = tostring(id),
+    ___source        = tostring(source),
+    ___type          = tostring(type),
+    ___time          = todatetime(['time']),
+    ___subject       = tostring(subject),
+    flightId         = tostring(data.flightId),
+    flightNumber     = tostring(data.flightNumber),
+    airline          = tostring(data.airline),
+    origin           = tostring(data.origin),
+    destination      = tostring(data.destination),
+    aircraft         = tostring(data.aircraft),
+    messageType      = tostring(data.messageType),
+    rawMessage       = tostring(data.rawMessage),
+    movementType     = tostring(data.movementData.movementType),
+    actualTimeUtc    = tostring(data.movementData.actualTimeUtc),
+    scheduledTimeUtc = tostring(data.movementData.scheduledTimeUtc)
