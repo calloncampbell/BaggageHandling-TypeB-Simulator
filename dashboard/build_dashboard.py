@@ -42,7 +42,7 @@ def stage_card(stage: str, col: str) -> str:
 
 Q = {}
 T = []  # tiles
-PAGES = ["Overview", "Flights", "Exceptions"]
+PAGES = ["Overview", "Flights", "Exceptions", "Network Map"]
 
 
 def tile(page, title, query, visual, x, y, w, h, options=None):
@@ -188,6 +188,35 @@ tile(P, "Exceptions by destination", f"""dash_bag_state(_startTime, _endTime)
 | take 40""", "stackedcolumn", 12, 11, 12, 8,
      series_opts("destination", ["Bags"], ["state"]))
 
+# ---------------------------------------------------------------- Network Map
+P = "Network Map"
+AIRPORT_AGG = f"""let handled = dash_bag_events(_startTime, _endTime)
+    {EV_FILTER}
+    | where stage in ('Checkin', 'Delivered')
+    | extend code = iff(stage == 'Checkin', origin, destination)
+    | summarize Bags = dcount(bagId) by code;
+let exc = dash_bag_events(_startTime, _endTime)
+    {EV_FILTER}
+    | where stage in {EXC_STAGES}
+    | summarize Exceptions = dcount(bagId) by code = origin;
+handled
+| join kind=leftouter exc on code
+| extend Exceptions = coalesce(Exceptions, long(0))
+| join kind=inner dash_airports() on code"""
+tile(P, "Bag volume by airport (checked in + delivered)", AIRPORT_AGG + """
+| project lat, lon, Airport = strcat(code, ' ', city), Bags""", "map", 0, 0, 14, 14,
+     {"map__latitudeColumn": "lat", "map__longitudeColumn": "lon",
+      "map__bubbleFormat": "bubble", "map__minBubbleSizeColumn": "Bags"})
+tile(P, "Exception hotspots (by origin airport)", AIRPORT_AGG + """
+| where Exceptions > 0
+| project lat, lon, Airport = strcat(code, ' ', city), Exceptions""", "map", 14, 0, 10, 14,
+     {"map__latitudeColumn": "lat", "map__longitudeColumn": "lon",
+      "map__bubbleFormat": "bubble", "map__minBubbleSizeColumn": "Exceptions"})
+tile(P, "Airport scorecard", AIRPORT_AGG + """
+| project Airport = strcat(code, ' ', city), Bags, Exceptions,
+    ['Exception %'] = round(100.0 * Exceptions / Bags, 2)
+| order by Bags desc
+| take 25""", "table", 0, 14, 24, 8)
 
 def build(args):
     pq = {

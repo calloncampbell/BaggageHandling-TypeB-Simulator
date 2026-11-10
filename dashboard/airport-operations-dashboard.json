@@ -429,6 +429,67 @@
           "state"
         ]
       }
+    },
+    {
+      "id": "064855dd-55bb-5729-aa0b-0cfe97ccc362",
+      "title": "Bag volume by airport (checked in + delivered)",
+      "visualType": "map",
+      "pageId": "f8742f2b-f45e-5167-abd0-7c5f46b3ba09",
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "width": 14,
+        "height": 14
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "d6f636fb-5bf1-5ec1-8d58-092645ad39a4"
+      },
+      "visualOptions": {
+        "map__latitudeColumn": "lat",
+        "map__longitudeColumn": "lon",
+        "map__bubbleFormat": "bubble",
+        "map__minBubbleSizeColumn": "Bags"
+      }
+    },
+    {
+      "id": "87c3bea7-f741-5ca8-b7d3-a0fe5d2bf680",
+      "title": "Exception hotspots (by origin airport)",
+      "visualType": "map",
+      "pageId": "f8742f2b-f45e-5167-abd0-7c5f46b3ba09",
+      "layout": {
+        "x": 14,
+        "y": 0,
+        "width": 10,
+        "height": 14
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "ddb86108-b0eb-5ba4-8c43-544915ee64b8"
+      },
+      "visualOptions": {
+        "map__latitudeColumn": "lat",
+        "map__longitudeColumn": "lon",
+        "map__bubbleFormat": "bubble",
+        "map__minBubbleSizeColumn": "Exceptions"
+      }
+    },
+    {
+      "id": "c73544f9-5cd9-5a2d-ac50-5e0c7a49dce2",
+      "title": "Airport scorecard",
+      "visualType": "table",
+      "pageId": "f8742f2b-f45e-5167-abd0-7c5f46b3ba09",
+      "layout": {
+        "x": 0,
+        "y": 14,
+        "width": 24,
+        "height": 8
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "062cc092-538f-5a4d-9ded-9862e53595e9"
+      },
+      "visualOptions": {}
     }
   ],
   "baseQueries": [],
@@ -523,6 +584,10 @@
     {
       "name": "Exceptions",
       "id": "2b63be7f-95a2-57e7-b07f-f97ccbe4bb52"
+    },
+    {
+      "name": "Network Map",
+      "id": "f8742f2b-f45e-5167-abd0-7c5f46b3ba09"
     }
   ],
   "queries": [
@@ -813,6 +878,48 @@
         "dataSourceId": "70f6906c-3410-58b9-b0c6-23ac00eab16b"
       },
       "text": "dash_bag_state(_startTime, _endTime)\n| where firstIngest between (_startTime .. _endTime)\n| where (isempty(_airline) or airline in (_airline)) and (isempty(_origin) or origin in (_origin))\n| where isException\n| summarize Bags = count() by destination, state\n| order by Bags desc\n| take 40",
+      "usedVariables": [
+        "_startTime",
+        "_endTime",
+        "_airline",
+        "_origin"
+      ]
+    },
+    {
+      "id": "d6f636fb-5bf1-5ec1-8d58-092645ad39a4",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "70f6906c-3410-58b9-b0c6-23ac00eab16b"
+      },
+      "text": "let handled = dash_bag_events(_startTime, _endTime)\n    | where ingest between (_startTime .. _endTime)\n| where (isempty(_airline) or airline in (_airline)) and (isempty(_origin) or origin in (_origin))\n    | where stage in ('Checkin', 'Delivered')\n    | extend code = iff(stage == 'Checkin', origin, destination)\n    | summarize Bags = dcount(bagId) by code;\nlet exc = dash_bag_events(_startTime, _endTime)\n    | where ingest between (_startTime .. _endTime)\n| where (isempty(_airline) or airline in (_airline)) and (isempty(_origin) or origin in (_origin))\n    | where stage in ('Rejected', 'Lost', 'CustomsWithheld', 'NotCollected')\n    | summarize Exceptions = dcount(bagId) by code = origin;\nhandled\n| join kind=leftouter exc on code\n| extend Exceptions = coalesce(Exceptions, long(0))\n| join kind=inner dash_airports() on code\n| project lat, lon, Airport = strcat(code, ' ', city), Bags",
+      "usedVariables": [
+        "_startTime",
+        "_endTime",
+        "_airline",
+        "_origin"
+      ]
+    },
+    {
+      "id": "ddb86108-b0eb-5ba4-8c43-544915ee64b8",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "70f6906c-3410-58b9-b0c6-23ac00eab16b"
+      },
+      "text": "let handled = dash_bag_events(_startTime, _endTime)\n    | where ingest between (_startTime .. _endTime)\n| where (isempty(_airline) or airline in (_airline)) and (isempty(_origin) or origin in (_origin))\n    | where stage in ('Checkin', 'Delivered')\n    | extend code = iff(stage == 'Checkin', origin, destination)\n    | summarize Bags = dcount(bagId) by code;\nlet exc = dash_bag_events(_startTime, _endTime)\n    | where ingest between (_startTime .. _endTime)\n| where (isempty(_airline) or airline in (_airline)) and (isempty(_origin) or origin in (_origin))\n    | where stage in ('Rejected', 'Lost', 'CustomsWithheld', 'NotCollected')\n    | summarize Exceptions = dcount(bagId) by code = origin;\nhandled\n| join kind=leftouter exc on code\n| extend Exceptions = coalesce(Exceptions, long(0))\n| join kind=inner dash_airports() on code\n| where Exceptions > 0\n| project lat, lon, Airport = strcat(code, ' ', city), Exceptions",
+      "usedVariables": [
+        "_startTime",
+        "_endTime",
+        "_airline",
+        "_origin"
+      ]
+    },
+    {
+      "id": "062cc092-538f-5a4d-9ded-9862e53595e9",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "70f6906c-3410-58b9-b0c6-23ac00eab16b"
+      },
+      "text": "let handled = dash_bag_events(_startTime, _endTime)\n    | where ingest between (_startTime .. _endTime)\n| where (isempty(_airline) or airline in (_airline)) and (isempty(_origin) or origin in (_origin))\n    | where stage in ('Checkin', 'Delivered')\n    | extend code = iff(stage == 'Checkin', origin, destination)\n    | summarize Bags = dcount(bagId) by code;\nlet exc = dash_bag_events(_startTime, _endTime)\n    | where ingest between (_startTime .. _endTime)\n| where (isempty(_airline) or airline in (_airline)) and (isempty(_origin) or origin in (_origin))\n    | where stage in ('Rejected', 'Lost', 'CustomsWithheld', 'NotCollected')\n    | summarize Exceptions = dcount(bagId) by code = origin;\nhandled\n| join kind=leftouter exc on code\n| extend Exceptions = coalesce(Exceptions, long(0))\n| join kind=inner dash_airports() on code\n| project Airport = strcat(code, ' ', city), Bags, Exceptions,\n    ['Exception %'] = round(100.0 * Exceptions / Bags, 2)\n| order by Bags desc\n| take 25",
       "usedVariables": [
         "_startTime",
         "_endTime",

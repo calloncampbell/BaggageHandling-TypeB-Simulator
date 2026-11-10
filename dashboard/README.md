@@ -1,6 +1,6 @@
 # Airport Operations Real-Time Dashboard
 
-A 3-page Fabric Real-Time Dashboard (21 tiles, 30s auto-refresh) on top of the simulator's Eventhouse tables.
+A 4-page Fabric Real-Time Dashboard (24 tiles, 30s auto-refresh) on top of the simulator's Eventhouse tables.
 Parameters: **Time range** (default 30 min), **Airline**, **Origin**.
 
 | Page | Tiles |
@@ -9,7 +9,7 @@ Parameters: **Time range** (default 30 min), **Airline**, **Origin**.
 | Flights | Live flight board (loaded %, delivered, exceptions, status), top 10 flights by exceptions, avg bag weight by airline, bags by destination |
 | Exceptions | Rejected / withheld / lost / not collected cards, exceptions with anomaly detection, by airline, by destination |
 
-A map page is intentionally not included yet; `dash_airports()` (IATA -> lat/lon) is provided to add it later.
+| Network Map | Bubble map of bag volume by airport, exception hotspot map (attributed to origin airport), airport scorecard table. Uses `dash_airports()` (IATA -> lat/lon), which covers all 52 airports in the simulator's built-in routes; custom `--airports-file` codes must be added to it. |
 
 ## Setup
 1. Ensure the tables from `kql\airport_events.kql` and `kql\event_tables.kql` exist (the `flights` / CDC tables are **not** used).
