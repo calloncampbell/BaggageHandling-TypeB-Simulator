@@ -1,0 +1,29 @@
+// Single-Event-Hub setup: Type-B events arrive in airport_events (main hub).
+// This copies them into typeb_flight_events, whose own update policies then fill the
+// Airport.Flight.TypeB.*_v1 tables. Run kql/typeb_tables.kql and kql/typeb_flight_events.kql first
+// (from the feature/type-b-messages branch). Do NOT also connect a second Type-B Event Hub to
+// typeb_flight_events, or events will be duplicated.
+
+.create-or-alter function typeb_from_airport_events() {
+    airport_events
+    | where type startswith 'Airport.Flight.TypeB'
+}
+
+.alter table typeb_flight_events policy update
+```
+[
+  {
+    "IsEnabled": true,
+    "Source": "airport_events",
+    "Query": "typeb_from_airport_events()",
+    "IsTransactional": false,
+    "PropagateIngestionProperties": false
+  }
+]
+```
+
+// Optional one-time backfill of Type-B events that already arrived (also fills the downstream *_v1 tables).
+// Run once, after the policy above; later events flow automatically.
+.set-or-append typeb_flight_events <|
+    airport_events
+    | where type startswith 'Airport.Flight.TypeB'
