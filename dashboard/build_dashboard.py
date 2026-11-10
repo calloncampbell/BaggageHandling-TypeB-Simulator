@@ -204,12 +204,13 @@ handled
 | extend Exceptions = coalesce(Exceptions, long(0))
 | join kind=inner dash_airports() on code"""
 tile(P, "Bag volume by airport (checked in + delivered)", AIRPORT_AGG + """
-| project lat, lon, Airport = strcat(code, ' ', city), Bags""", "map", 0, 0, 14, 14,
+| project lat, lon, Status = iff(Exceptions > 0, 'Has exceptions', 'No exceptions'), Bags, Exceptions,
+    ['Exception %'] = round(100.0 * Exceptions / Bags, 2), Airport = strcat(code, ' ', city)""", "map", 0, 0, 14, 14,
      {"map__latitudeColumn": "lat", "map__longitudeColumn": "lon",
       "map__bubbleFormat": "bubble", "map__minBubbleSizeColumn": "Bags"})
 tile(P, "Exception hotspots (by origin airport)", AIRPORT_AGG + """
 | where Exceptions > 0
-| project lat, lon, Airport = strcat(code, ' ', city), Exceptions""", "map", 14, 0, 10, 14,
+| project lat, lon, Status = 'Has exceptions', Exceptions, Bags, Airport = strcat(code, ' ', city)""", "map", 14, 0, 10, 14,
      {"map__latitudeColumn": "lat", "map__longitudeColumn": "lon",
       "map__bubbleFormat": "bubble", "map__minBubbleSizeColumn": "Exceptions"})
 tile(P, "Airport scorecard", AIRPORT_AGG + """
