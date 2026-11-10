@@ -1,0 +1,29 @@
+// One-time backfill of the Airport.Flight.TypeB.*_v1 tables from typeb_flight_events.
+// Use only if typeb_flight_events has rows but the _v1 tables are empty (policies were created after the data arrived).
+// Run each command separately. Check counts first to avoid duplicates:
+//   ['Airport.Flight.TypeB.LDM_v1'] | count
+
+.set-or-append ['Airport.Flight.TypeB.LDM_v1'] <|
+typeb_flight_events
+| where type == 'Airport.Flight.TypeB.LDM'
+| project
+    ___id         = tostring(id),
+    ___source     = tostring(source),
+    ___type       = tostring(type),
+    ___time       = todatetime(['time']),
+    ___subject    = tostring(subject),
+    flightId      = tostring(data.flightId),
+    flightNumber  = tostring(data.flightNumber),
+    airline       = tostring(data.airline),
+    origin        = tostring(data.origin),
+    destination   = tostring(data.destination),
+    departureUtc  = tostring(data.departureUtc),
+    messageType   = tostring(data.messageType),
+    rawMessage    = tostring(data.rawMessage),
+    passengers    = tolong(data.loadData.passengers),
+    bags          = tolong(data.loadData.bags),
+    totalWeightKg = toreal(data.loadData.totalWeightKg)
+
+// For the MVT tables, copy the project list from the matching update policy in typeb_tables.kql and change the type filter:
+//   .set-or-append ['Airport.Flight.TypeB.MVT.DEP_v1'] <| typeb_flight_events | where type == 'Airport.Flight.TypeB.MVT.DEP' | project ...
+//   .set-or-append ['Airport.Flight.TypeB.MVT.ARR_v1'] <| typeb_flight_events | where type == 'Airport.Flight.TypeB.MVT.ARR' | project ...
