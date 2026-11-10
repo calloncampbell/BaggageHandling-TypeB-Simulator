@@ -110,6 +110,10 @@ bhsim --clock-speed 120 --flight-interval-minutes 5 \
   --sql-conn $env:SQLSERVER_CONNECTION_STRING
 ```
 
+## Real-Time Dashboard
+
+A Fabric Real-Time Dashboard for the Eventhouse data (KPIs, bag pipeline, flight board, exceptions with anomaly detection) is in [`dashboard`](dashboard/README.md).
+
 ## Notes
 
 - Events use CloudEvents 1.0 JSON. Partition key is flightId for ordering per-flight.

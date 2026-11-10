@@ -1,0 +1,120 @@
+// Helper functions used by the Real-Time Dashboard (see dashboard\README.md).
+// Run in the Eventhouse KQL database after event_tables.kql.
+//
+// Time semantics: every function exposes `ingest` (wall-clock ingestion time) which the
+// dashboard uses for the time-range filter. `___time` is simulated time (accelerated clock)
+// and is only shown as the "simulated clock" card.
+
+// Lost bags are emitted by the simulator but had no typed table.
+.create table ['Airport.Baggage.Lost_v1']
+(
+    ___id        : string,
+    ___source    : string,
+    ___type      : string,
+    ___time      : datetime,
+    ___subject   : string,
+    flightId     : string,
+    bagId        : string
+)
+
+.alter table ['Airport.Baggage.Lost_v1'] policy retention "{'SoftDeletePeriod': '36500.00:00:00', 'Recoverability': 'Enabled'}"
+
+.alter table ['Airport.Baggage.Lost_v1'] policy update
+```
+[
+  {
+    "IsEnabled": true,
+    "Source": "airport_events",
+    "Query": "let bags = airport_events
+| where type == 'Airport.Baggage.Lost' and isnull(array_length(data))==true;
+let arrays = airport_events
+| where type == 'Airport.Baggage.Lost' and isnull(array_length(data))==false
+| mv-expand data;
+bags
+| union arrays
+| project
+    ___id      = tostring(id),
+    ___source  = tostring(source),
+    ___type    = tostring(type),
+    ___time    = todatetime(['time']),
+    ___subject = tostring(subject),
+    flightId   = tostring(data.flightId),
+    bagId      = tostring(data.bagId)",
+    "IsTransactional": false,
+    "PropagateIngestionProperties": false
+  }
+]
+```
+
+// IATA -> coordinates for every airport the simulator uses (for map visuals).
+.create-or-alter function dash_airports() {
+    datatable(code: string, city: string, lat: real, lon: real) [
+        "FRA","Frankfurt",50.03,8.57, "LHR","London",51.47,-0.45, "JFK","New York",40.64,-73.78,
+        "CDG","Paris",49.01,2.55, "SFO","San Francisco",37.62,-122.38, "NRT","Tokyo",35.77,140.39,
+        "LAX","Los Angeles",33.94,-118.41, "MIA","Miami",25.79,-80.29, "SEA","Seattle",47.45,-122.31,
+        "MUC","Munich",48.35,11.79, "AMS","Amsterdam",52.31,4.76, "BCN","Barcelona",41.30,2.08,
+        "MAD","Madrid",40.49,-3.57, "FCO","Rome",41.80,12.25, "ATH","Athens",37.94,23.94,
+        "IST","Istanbul",41.28,28.75, "VIE","Vienna",48.11,16.57, "PRG","Prague",50.10,14.26,
+        "WAW","Warsaw",52.17,20.97, "BUD","Budapest",47.44,19.26, "ZUR","Zurich",47.46,8.55,
+        "GVA","Geneva",46.24,6.11, "NCE","Nice",43.66,7.22, "LIS","Lisbon",38.77,-9.13,
+        "DXB","Dubai",25.25,55.36, "HKG","Hong Kong",22.31,113.91, "SIN","Singapore",1.36,103.99,
+        "BKK","Bangkok",13.69,100.75, "MEX","Mexico City",19.44,-99.07, "GIG","Rio de Janeiro",-22.81,-43.25,
+        "PVG","Shanghai",31.14,121.81, "SYD","Sydney",-33.94,151.18, "DUB","Dublin",53.42,-6.27,
+        "CPH","Copenhagen",55.62,12.65, "STO","Stockholm",59.65,17.93, "OSL","Oslo",60.19,11.10,
+        "HEL","Helsinki",60.32,24.96, "BRU","Brussels",50.90,4.48, "LUX","Luxembourg",49.63,6.20,
+        "MXP","Milan",45.63,8.72, "TXL","Berlin",52.56,13.29, "HAM","Hamburg",53.63,9.99,
+        "YYZ","Toronto",43.68,-79.63, "YUL","Montreal",45.47,-73.74, "ORD","Chicago",41.98,-87.90,
+        "EWR","Newark",40.69,-74.17, "IAD","Washington DC",38.95,-77.46, "BOM","Mumbai",19.09,72.87,
+        "DOH","Doha",25.27,51.61, "AUH","Abu Dhabi",24.43,54.65, "KWI","Kuwait",29.23,47.97,
+        "CAI","Cairo",30.12,31.41
+    ]
+}
+
+// One row per bag with its check-in attributes (airline, route, weight).
+// Only check-ins ingested at/after `_from` are read; callers pass a start earlier than their event window.
+.create-or-alter function dash_bags_dim(_from: datetime) {
+    ['Airport.Baggage.Checkin_v1']
+    | where ingestion_time() >= _from
+    | summarize arg_max(___time, *) by flightId, bagId
+    | project flightId, bagId, flightNumber, airline, origin, destination, weightKg, paxId
+}
+
+// Bag lifecycle events ingested in [_from, _to], enriched with airline/origin/destination.
+// Time filters run first on each table so the scan stays proportional to the window.
+// Customs "cleared" is intentionally excluded (simulator emits type 'Airport.Baggage.Customs.Screened').
+.create-or-alter function dash_bag_events(_from: datetime, _to: datetime) {
+    union
+        (['Airport.Baggage.Checkin_v1']          | where ingestion_time() between (_from .. _to) | project stage = 'Checkin',         flightId, bagId, ___time, ingest = ingestion_time()),
+        (['Airport.Baggage.Screened_v1']         | where ingestion_time() between (_from .. _to) | project stage = 'Screened',        flightId, bagId, ___time, ingest = ingestion_time()),
+        (['Airport.Baggage.Inspected_v1']        | where ingestion_time() between (_from .. _to) | project stage = 'Inspected',       flightId, bagId, ___time, ingest = ingestion_time()),
+        (['Airport.Baggage.Rejected_v1']         | where ingestion_time() between (_from .. _to) | project stage = 'Rejected',        flightId, bagId, ___time, ingest = ingestion_time()),
+        (['Airport.Baggage.Lost_v1']             | where ingestion_time() between (_from .. _to) | project stage = 'Lost',            flightId, bagId, ___time, ingest = ingestion_time()),
+        (['Airport.Baggage.Loaded_v1']           | where ingestion_time() between (_from .. _to) | project stage = 'Loaded',          flightId, bagId, ___time, ingest = ingestion_time()),
+        (['Airport.Baggage.Unloaded_v1']         | where ingestion_time() between (_from .. _to) | project stage = 'Unloaded',        flightId, bagId, ___time, ingest = ingestion_time()),
+        (['Airport.Baggage.CustomsWithheld_v1']  | where ingestion_time() between (_from .. _to) | project stage = 'CustomsWithheld', flightId, bagId, ___time, ingest = ingestion_time()),
+        (['Airport.Baggage.DeliveredOnBelt_v1']  | where ingestion_time() between (_from .. _to) | project stage = 'Delivered',       flightId, bagId, ___time, ingest = ingestion_time()),
+        (['Airport.Baggage.NotCollected_v1']     | where ingestion_time() between (_from .. _to) | project stage = 'NotCollected',    flightId, bagId, ___time, ingest = ingestion_time())
+    | lookup kind=leftouter (dash_bags_dim(_from - 1d)) on flightId, bagId
+}
+
+// One row per bag with a single, mutually exclusive state.
+// Precedence: NotCollected > CustomsWithheld > Delivered > Lost > Rejected > Unloaded > Loaded > Screened > CheckedIn.
+// Exception bags = Rejected, Lost, CustomsWithheld, NotCollected.
+// Mishandled % = exception bags / all bags (see dashboard\README.md).
+// Covers bags with at least one event ingested in [_from, _to].
+.create-or-alter function dash_bag_state(_from: datetime, _to: datetime) {
+    dash_bag_events(_from, _to)
+    | summarize stages = make_set(stage), firstIngest = min(ingest), lastIngest = max(ingest), lastSimTime = max(___time)
+        by flightId, bagId, flightNumber, airline, origin, destination, weightKg
+    | extend state = case(
+        set_has_element(stages, 'NotCollected'),   'NotCollected',
+        set_has_element(stages, 'CustomsWithheld'), 'CustomsWithheld',
+        set_has_element(stages, 'Delivered'),       'Delivered',
+        set_has_element(stages, 'Lost'),            'Lost',
+        set_has_element(stages, 'Rejected'),        'Rejected',
+        set_has_element(stages, 'Unloaded'),        'Unloaded',
+        set_has_element(stages, 'Loaded'),          'Loaded',
+        set_has_element(stages, 'Screened'),        'Screened',
+        'CheckedIn')
+    | extend isException = state in ('NotCollected', 'CustomsWithheld', 'Lost', 'Rejected')
+}

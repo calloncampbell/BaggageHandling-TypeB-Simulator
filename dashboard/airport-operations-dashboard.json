@@ -1,0 +1,847 @@
+{
+  "$schema": "https://dataexplorer.azure.com/static/d/schema/60/dashboard.json",
+  "schema_version": "60",
+  "title": "Airport Operations v2",
+  "tiles": [
+    {
+      "id": "f2b6c4e3-e1cc-5e48-b4b1-9af6d2079671",
+      "title": "Passengers checked in",
+      "visualType": "card",
+      "pageId": "fe05b669-607a-513c-b044-40d6d95c6f67",
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "width": 4,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "c46a3e4a-0540-58a8-8228-4eb1afed479b"
+      },
+      "visualOptions": {}
+    },
+    {
+      "id": "b7dcd899-e3b2-5830-8ff1-113de09deed6",
+      "title": "Bags checked in",
+      "visualType": "card",
+      "pageId": "fe05b669-607a-513c-b044-40d6d95c6f67",
+      "layout": {
+        "x": 4,
+        "y": 0,
+        "width": 4,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "5c04b587-f4b0-511d-b91c-aa70865c6dbf"
+      },
+      "visualOptions": {}
+    },
+    {
+      "id": "dd44c1ad-48b8-5826-9525-2863e3b3b65e",
+      "title": "Bags loaded",
+      "visualType": "card",
+      "pageId": "fe05b669-607a-513c-b044-40d6d95c6f67",
+      "layout": {
+        "x": 8,
+        "y": 0,
+        "width": 4,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "2940a03a-3ffa-52df-a01d-015ab8d2617b"
+      },
+      "visualOptions": {}
+    },
+    {
+      "id": "890c8ba6-3ebd-50a3-9d1f-ae333a305876",
+      "title": "Bags delivered to belt",
+      "visualType": "card",
+      "pageId": "fe05b669-607a-513c-b044-40d6d95c6f67",
+      "layout": {
+        "x": 12,
+        "y": 0,
+        "width": 4,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "f13027d4-ca20-5e97-a9e4-529faf5461f8"
+      },
+      "visualOptions": {}
+    },
+    {
+      "id": "86d17bc6-a083-532d-b835-829568aada73",
+      "title": "Exception bags",
+      "visualType": "card",
+      "pageId": "fe05b669-607a-513c-b044-40d6d95c6f67",
+      "layout": {
+        "x": 16,
+        "y": 0,
+        "width": 4,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "96f7c89e-df07-5669-a97a-81d24a87f6d4"
+      },
+      "visualOptions": {}
+    },
+    {
+      "id": "2a0cd003-3bc1-59c8-8594-33e23dc48852",
+      "title": "Mishandled %",
+      "visualType": "card",
+      "pageId": "fe05b669-607a-513c-b044-40d6d95c6f67",
+      "layout": {
+        "x": 20,
+        "y": 0,
+        "width": 4,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "45880be1-5ed9-5168-8bf3-19214ce4dc6a"
+      },
+      "visualOptions": {}
+    },
+    {
+      "id": "310db734-3e0b-532c-af78-fb34992f19e6",
+      "title": "Bag events per minute by stage",
+      "visualType": "line",
+      "pageId": "fe05b669-607a-513c-b044-40d6d95c6f67",
+      "layout": {
+        "x": 0,
+        "y": 3,
+        "width": 14,
+        "height": 8
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "fccb6c64-1a79-52d6-8805-93f6d7f71761"
+      },
+      "visualOptions": {
+        "xColumn": "Time",
+        "yColumns": [
+          "Bags"
+        ],
+        "seriesColumns": [
+          "stage"
+        ]
+      }
+    },
+    {
+      "id": "91462195-76f2-5656-ad4c-e4fd922d6af0",
+      "title": "Bag pipeline (bags reaching each stage)",
+      "visualType": "bar",
+      "pageId": "fe05b669-607a-513c-b044-40d6d95c6f67",
+      "layout": {
+        "x": 14,
+        "y": 3,
+        "width": 10,
+        "height": 8
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "65134a0f-1208-5cf5-8704-7bb9211137fa"
+      },
+      "visualOptions": {
+        "xColumn": "stage",
+        "yColumns": [
+          "Bags"
+        ],
+        "seriesColumns": null
+      }
+    },
+    {
+      "id": "59409a4a-8313-5d88-ac71-490610411464",
+      "title": "Passengers vs bags checked in",
+      "visualType": "area",
+      "pageId": "fe05b669-607a-513c-b044-40d6d95c6f67",
+      "layout": {
+        "x": 0,
+        "y": 11,
+        "width": 14,
+        "height": 8
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "29ff8fe8-4d60-574e-a335-9852666dca96"
+      },
+      "visualOptions": {
+        "xColumn": "Time",
+        "yColumns": [
+          "Count"
+        ],
+        "seriesColumns": [
+          "Series"
+        ]
+      }
+    },
+    {
+      "id": "5b421343-f050-5342-8fb6-15e93cbe1018",
+      "title": "Exceptions over time",
+      "visualType": "stackedcolumn",
+      "pageId": "fe05b669-607a-513c-b044-40d6d95c6f67",
+      "layout": {
+        "x": 14,
+        "y": 11,
+        "width": 10,
+        "height": 8
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "b4f3417e-58cc-5968-b892-355bbc220758"
+      },
+      "visualOptions": {
+        "xColumn": "Time",
+        "yColumns": [
+          "Bags"
+        ],
+        "seriesColumns": [
+          "stage"
+        ]
+      }
+    },
+    {
+      "id": "0e156f8f-5ad0-5d18-8c1c-8e083c5377b2",
+      "title": "Live flight board",
+      "visualType": "table",
+      "pageId": "24587e96-e8e2-51b8-a05a-b2166822258b",
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "width": 16,
+        "height": 10
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "ebbc9246-1b25-52cf-a93d-039a15bcdaf7"
+      },
+      "visualOptions": {}
+    },
+    {
+      "id": "5c91c68e-6261-52bd-869f-9e73adc2cff6",
+      "title": "Top 10 flights by exceptions",
+      "visualType": "bar",
+      "pageId": "24587e96-e8e2-51b8-a05a-b2166822258b",
+      "layout": {
+        "x": 16,
+        "y": 0,
+        "width": 8,
+        "height": 10
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "88e06652-e64b-569b-8641-a0b2c12f672f"
+      },
+      "visualOptions": {
+        "xColumn": "Flight",
+        "yColumns": [
+          "Exceptions"
+        ],
+        "seriesColumns": null
+      }
+    },
+    {
+      "id": "aa0d830a-5f7e-52da-8ad8-418d78f57089",
+      "title": "Average bag weight by airline (kg)",
+      "visualType": "bar",
+      "pageId": "24587e96-e8e2-51b8-a05a-b2166822258b",
+      "layout": {
+        "x": 0,
+        "y": 10,
+        "width": 12,
+        "height": 8
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "0bce02ad-b67b-55f5-bc03-37e1dfdb73c7"
+      },
+      "visualOptions": {
+        "xColumn": "airline",
+        "yColumns": [
+          "Avg kg"
+        ],
+        "seriesColumns": null
+      }
+    },
+    {
+      "id": "45862fd7-a827-55b0-9c16-cbc4ea2dd604",
+      "title": "Bags by destination",
+      "visualType": "bar",
+      "pageId": "24587e96-e8e2-51b8-a05a-b2166822258b",
+      "layout": {
+        "x": 12,
+        "y": 10,
+        "width": 12,
+        "height": 8
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "386853b9-ff1e-5e00-8fda-780714110e35"
+      },
+      "visualOptions": {
+        "xColumn": "destination",
+        "yColumns": [
+          "Bags"
+        ],
+        "seriesColumns": null
+      }
+    },
+    {
+      "id": "822777c2-3b3f-5ddc-b225-17d723d69eeb",
+      "title": "Rejected",
+      "visualType": "card",
+      "pageId": "2b63be7f-95a2-57e7-b07f-f97ccbe4bb52",
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "width": 6,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "aa65b326-57e8-59c6-82b2-e507990b4e50"
+      },
+      "visualOptions": {}
+    },
+    {
+      "id": "682ee49b-393d-536f-b174-96a67eaf1da8",
+      "title": "Customs withheld",
+      "visualType": "card",
+      "pageId": "2b63be7f-95a2-57e7-b07f-f97ccbe4bb52",
+      "layout": {
+        "x": 6,
+        "y": 0,
+        "width": 6,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "e3d11ca6-7e38-5b32-89cd-52b6222dee81"
+      },
+      "visualOptions": {}
+    },
+    {
+      "id": "39899872-ef6d-52e4-8bdb-7084d7245d37",
+      "title": "Lost",
+      "visualType": "card",
+      "pageId": "2b63be7f-95a2-57e7-b07f-f97ccbe4bb52",
+      "layout": {
+        "x": 12,
+        "y": 0,
+        "width": 6,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "fec94ff1-675e-5a11-b6e5-7ecca9cf7b8a"
+      },
+      "visualOptions": {}
+    },
+    {
+      "id": "cc7ec49b-316f-5f01-9403-cd8a72a4cc33",
+      "title": "Not collected",
+      "visualType": "card",
+      "pageId": "2b63be7f-95a2-57e7-b07f-f97ccbe4bb52",
+      "layout": {
+        "x": 18,
+        "y": 0,
+        "width": 6,
+        "height": 3
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "f0c425e3-4a39-5737-9131-52cb41a8be4a"
+      },
+      "visualOptions": {}
+    },
+    {
+      "id": "b422f7c3-cb4f-5419-9e2d-a2450dd6b75c",
+      "title": "Exceptions with anomaly detection",
+      "visualType": "anomalychart",
+      "pageId": "2b63be7f-95a2-57e7-b07f-f97ccbe4bb52",
+      "layout": {
+        "x": 0,
+        "y": 3,
+        "width": 24,
+        "height": 8
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "66429dbf-e2b7-5ba7-b729-9102c52a0448"
+      },
+      "visualOptions": {
+        "xColumn": "ingest",
+        "yColumns": [
+          "Exceptions"
+        ],
+        "anomalyColumns": [
+          "Anomalies"
+        ]
+      }
+    },
+    {
+      "id": "a0e72e8c-405c-5086-96aa-5b49e1c406ad",
+      "title": "Exceptions by airline",
+      "visualType": "bar",
+      "pageId": "2b63be7f-95a2-57e7-b07f-f97ccbe4bb52",
+      "layout": {
+        "x": 0,
+        "y": 11,
+        "width": 12,
+        "height": 8
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "21a8e1fd-7565-5f6c-8c39-ad3b4576a370"
+      },
+      "visualOptions": {
+        "xColumn": "airline",
+        "yColumns": [
+          "Exceptions"
+        ],
+        "seriesColumns": null
+      }
+    },
+    {
+      "id": "49f6c457-5fbe-5469-88d5-e3670fb05723",
+      "title": "Exceptions by destination",
+      "visualType": "stackedcolumn",
+      "pageId": "2b63be7f-95a2-57e7-b07f-f97ccbe4bb52",
+      "layout": {
+        "x": 12,
+        "y": 11,
+        "width": 12,
+        "height": 8
+      },
+      "queryRef": {
+        "kind": "query",
+        "queryId": "8daa415d-b9fd-5514-886c-2d80b4e25d5b"
+      },
+      "visualOptions": {
+        "xColumn": "destination",
+        "yColumns": [
+          "Bags"
+        ],
+        "seriesColumns": [
+          "state"
+        ]
+      }
+    }
+  ],
+  "baseQueries": [],
+  "parameters": [
+    {
+      "kind": "duration",
+      "id": "e8a09144-029c-5efb-bd12-cc9a86b7d9bf",
+      "displayName": "Time range",
+      "description": "",
+      "beginVariableName": "_startTime",
+      "endVariableName": "_endTime",
+      "defaultValue": {
+        "kind": "dynamic",
+        "count": 30,
+        "unit": "minutes"
+      },
+      "showOnPages": {
+        "kind": "all"
+      }
+    },
+    {
+      "kind": "string",
+      "id": "9d472c59-4927-5752-89db-51e276da7326",
+      "displayName": "Airline",
+      "description": "",
+      "variableName": "_airline",
+      "selectionType": "array",
+      "includeAllOption": true,
+      "defaultValue": {
+        "kind": "all"
+      },
+      "dataSource": {
+        "kind": "query",
+        "columns": {
+          "value": "airline"
+        },
+        "queryRef": {
+          "kind": "query",
+          "queryId": "62c2dc38-1ef2-564b-95ce-41f003631157"
+        }
+      },
+      "showOnPages": {
+        "kind": "all"
+      }
+    },
+    {
+      "kind": "string",
+      "id": "896da394-e485-5ed2-8dfe-b20b57573fe3",
+      "displayName": "Origin",
+      "description": "",
+      "variableName": "_origin",
+      "selectionType": "array",
+      "includeAllOption": true,
+      "defaultValue": {
+        "kind": "all"
+      },
+      "dataSource": {
+        "kind": "query",
+        "columns": {
+          "value": "origin"
+        },
+        "queryRef": {
+          "kind": "query",
+          "queryId": "d23b641f-1dcf-53f7-abe3-fc47298a37f9"
+        }
+      },
+      "showOnPages": {
+        "kind": "all"
+      }
+    }
+  ],
+  "dataSources": [
+    {
+      "id": "70f6906c-3410-58b9-b0c6-23ac00eab16b",
+      "name": "Airport-Eventhouse",
+      "scopeId": "kusto-trident",
+      "kind": "kusto-trident",
+      "clusterUri": "<EVENTHOUSE_QUERY_URI>",
+      "database": "<KQL_DATABASE_ID_OR_NAME>",
+      "workspace": "<FABRIC_WORKSPACE_ID>"
+    }
+  ],
+  "pages": [
+    {
+      "name": "Overview",
+      "id": "fe05b669-607a-513c-b044-40d6d95c6f67"
+    },
+    {
+      "name": "Flights",
+      "id": "24587e96-e8e2-51b8-a05a-b2166822258b"
+    },
+    {
+      "name": "Exceptions",
+      "id": "2b63be7f-95a2-57e7-b07f-f97ccbe4bb52"
+    }
+  ],
+  "queries": [
+    {
+      "id": "c46a3e4a-0540-58a8-8228-4eb1afed479b",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "70f6906c-3410-58b9-b0c6-23ac00eab16b"
+      },
+      "text": "['Airport.Passenger.Checkin_v1']\n| where ingestion_time() between (_startTime .. _endTime)\n| extend ingest = ingestion_time()\n| where ingest between (_startTime .. _endTime)\n| where (isempty(_airline) or airline in (_airline)) and (isempty(_origin) or origin in (_origin))\n| summarize Passengers = dcount(paxId)",
+      "usedVariables": [
+        "_startTime",
+        "_endTime",
+        "_airline",
+        "_origin"
+      ]
+    },
+    {
+      "id": "5c04b587-f4b0-511d-b91c-aa70865c6dbf",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "70f6906c-3410-58b9-b0c6-23ac00eab16b"
+      },
+      "text": "dash_bag_events(_startTime, _endTime)\n| where ingest between (_startTime .. _endTime)\n| where (isempty(_airline) or airline in (_airline)) and (isempty(_origin) or origin in (_origin))\n| where stage == 'Checkin'\n| summarize ['Bags'] = dcount(bagId)",
+      "usedVariables": [
+        "_startTime",
+        "_endTime",
+        "_airline",
+        "_origin"
+      ]
+    },
+    {
+      "id": "2940a03a-3ffa-52df-a01d-015ab8d2617b",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "70f6906c-3410-58b9-b0c6-23ac00eab16b"
+      },
+      "text": "dash_bag_events(_startTime, _endTime)\n| where ingest between (_startTime .. _endTime)\n| where (isempty(_airline) or airline in (_airline)) and (isempty(_origin) or origin in (_origin))\n| where stage == 'Loaded'\n| summarize ['Bags'] = dcount(bagId)",
+      "usedVariables": [
+        "_startTime",
+        "_endTime",
+        "_airline",
+        "_origin"
+      ]
+    },
+    {
+      "id": "f13027d4-ca20-5e97-a9e4-529faf5461f8",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "70f6906c-3410-58b9-b0c6-23ac00eab16b"
+      },
+      "text": "dash_bag_events(_startTime, _endTime)\n| where ingest between (_startTime .. _endTime)\n| where (isempty(_airline) or airline in (_airline)) and (isempty(_origin) or origin in (_origin))\n| where stage == 'Delivered'\n| summarize ['Bags'] = dcount(bagId)",
+      "usedVariables": [
+        "_startTime",
+        "_endTime",
+        "_airline",
+        "_origin"
+      ]
+    },
+    {
+      "id": "96f7c89e-df07-5669-a97a-81d24a87f6d4",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "70f6906c-3410-58b9-b0c6-23ac00eab16b"
+      },
+      "text": "dash_bag_state(_startTime, _endTime)\n| where firstIngest between (_startTime .. _endTime)\n| where (isempty(_airline) or airline in (_airline)) and (isempty(_origin) or origin in (_origin))\n| summarize Exceptions = countif(isException)",
+      "usedVariables": [
+        "_startTime",
+        "_endTime",
+        "_airline",
+        "_origin"
+      ]
+    },
+    {
+      "id": "45880be1-5ed9-5168-8bf3-19214ce4dc6a",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "70f6906c-3410-58b9-b0c6-23ac00eab16b"
+      },
+      "text": "dash_bag_state(_startTime, _endTime)\n| where firstIngest between (_startTime .. _endTime)\n| where (isempty(_airline) or airline in (_airline)) and (isempty(_origin) or origin in (_origin))\n| summarize Rate = round(100.0 * countif(isException) / count(), 2)\n| project ['Mishandled %'] = Rate",
+      "usedVariables": [
+        "_startTime",
+        "_endTime",
+        "_airline",
+        "_origin"
+      ]
+    },
+    {
+      "id": "fccb6c64-1a79-52d6-8805-93f6d7f71761",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "70f6906c-3410-58b9-b0c6-23ac00eab16b"
+      },
+      "text": "dash_bag_events(_startTime, _endTime)\n| where ingest between (_startTime .. _endTime)\n| where (isempty(_airline) or airline in (_airline)) and (isempty(_origin) or origin in (_origin))\n| summarize Bags = dcount(bagId) by Time = bin(ingest, 1m), stage\n| order by Time asc",
+      "usedVariables": [
+        "_startTime",
+        "_endTime",
+        "_airline",
+        "_origin"
+      ]
+    },
+    {
+      "id": "65134a0f-1208-5cf5-8704-7bb9211137fa",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "70f6906c-3410-58b9-b0c6-23ac00eab16b"
+      },
+      "text": "dash_bag_events(_startTime, _endTime)\n| where ingest between (_startTime .. _endTime)\n| where (isempty(_airline) or airline in (_airline)) and (isempty(_origin) or origin in (_origin))\n| where stage in ('Checkin', 'Screened', 'Loaded', 'Unloaded', 'Delivered')\n| summarize Bags = dcount(bagId) by stage\n| extend ord = case(stage == 'Checkin', 1, stage == 'Screened', 2, stage == 'Loaded', 3, stage == 'Unloaded', 4, 5)\n| order by ord asc\n| project stage, Bags",
+      "usedVariables": [
+        "_startTime",
+        "_endTime",
+        "_airline",
+        "_origin"
+      ]
+    },
+    {
+      "id": "29ff8fe8-4d60-574e-a335-9852666dca96",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "70f6906c-3410-58b9-b0c6-23ac00eab16b"
+      },
+      "text": "let pax = ['Airport.Passenger.Checkin_v1']\n    | where ingestion_time() between (_startTime .. _endTime)\n    | extend ingest = ingestion_time()\n    | where ingest between (_startTime .. _endTime)\n| where (isempty(_airline) or airline in (_airline)) and (isempty(_origin) or origin in (_origin))\n    | summarize Count = dcount(paxId) by Time = bin(ingest, 1m)\n    | extend Series = 'Passengers';\nlet bags = dash_bag_events(_startTime, _endTime)\n    | where ingest between (_startTime .. _endTime)\n| where (isempty(_airline) or airline in (_airline)) and (isempty(_origin) or origin in (_origin))\n    | where stage == 'Checkin'\n    | summarize Count = dcount(bagId) by Time = bin(ingest, 1m)\n    | extend Series = 'Bags';\nunion pax, bags\n| order by Time asc",
+      "usedVariables": [
+        "_startTime",
+        "_endTime",
+        "_airline",
+        "_origin"
+      ]
+    },
+    {
+      "id": "b4f3417e-58cc-5968-b892-355bbc220758",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "70f6906c-3410-58b9-b0c6-23ac00eab16b"
+      },
+      "text": "dash_bag_events(_startTime, _endTime)\n| where ingest between (_startTime .. _endTime)\n| where (isempty(_airline) or airline in (_airline)) and (isempty(_origin) or origin in (_origin))\n| where stage in ('Rejected', 'Lost', 'CustomsWithheld', 'NotCollected')\n| summarize Bags = dcount(bagId) by Time = bin(ingest, 1m), stage\n| order by Time asc",
+      "usedVariables": [
+        "_startTime",
+        "_endTime",
+        "_airline",
+        "_origin"
+      ]
+    },
+    {
+      "id": "ebbc9246-1b25-52cf-a93d-039a15bcdaf7",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "70f6906c-3410-58b9-b0c6-23ac00eab16b"
+      },
+      "text": "dash_bag_state(_startTime, _endTime)\n| where firstIngest between (_startTime .. _endTime)\n| where (isempty(_airline) or airline in (_airline)) and (isempty(_origin) or origin in (_origin))\n| summarize Bags = count(),\n    Loaded = countif(set_has_element(stages, 'Loaded')),\n    Unloaded = countif(set_has_element(stages, 'Unloaded')),\n    Delivered = countif(state == 'Delivered'),\n    Exceptions = countif(isException),\n    Updated = max(lastIngest)\n    by Flight = flightNumber, Airline = airline, Origin = origin, Destination = destination\n| extend ['Loaded %'] = round(100.0 * Loaded / Bags, 1)\n| extend Status = case(\n    Delivered + Exceptions >= Bags, 'Baggage complete',\n    Unloaded > 0, 'At baggage claim',\n    Loaded > 0, 'Loading / in flight',\n    'Check-in')\n| project Flight, Airline, Route = strcat(Origin, ' -> ', Destination), Bags, ['Loaded %'], Delivered, Exceptions, Status, Updated\n| order by Updated desc\n| take 50",
+      "usedVariables": [
+        "_startTime",
+        "_endTime",
+        "_airline",
+        "_origin"
+      ]
+    },
+    {
+      "id": "88e06652-e64b-569b-8641-a0b2c12f672f",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "70f6906c-3410-58b9-b0c6-23ac00eab16b"
+      },
+      "text": "dash_bag_state(_startTime, _endTime)\n| where firstIngest between (_startTime .. _endTime)\n| where (isempty(_airline) or airline in (_airline)) and (isempty(_origin) or origin in (_origin))\n| where isException\n| summarize Exceptions = count() by Flight = strcat(flightNumber, ' ', origin, '-', destination)\n| top 10 by Exceptions desc",
+      "usedVariables": [
+        "_startTime",
+        "_endTime",
+        "_airline",
+        "_origin"
+      ]
+    },
+    {
+      "id": "0bce02ad-b67b-55f5-bc03-37e1dfdb73c7",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "70f6906c-3410-58b9-b0c6-23ac00eab16b"
+      },
+      "text": "dash_bag_state(_startTime, _endTime)\n| where firstIngest between (_startTime .. _endTime)\n| where (isempty(_airline) or airline in (_airline)) and (isempty(_origin) or origin in (_origin))\n| where isnotempty(airline)\n| summarize ['Avg kg'] = round(avg(weightKg), 1) by airline\n| order by ['Avg kg'] desc",
+      "usedVariables": [
+        "_startTime",
+        "_endTime",
+        "_airline",
+        "_origin"
+      ]
+    },
+    {
+      "id": "386853b9-ff1e-5e00-8fda-780714110e35",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "70f6906c-3410-58b9-b0c6-23ac00eab16b"
+      },
+      "text": "dash_bag_state(_startTime, _endTime)\n| where firstIngest between (_startTime .. _endTime)\n| where (isempty(_airline) or airline in (_airline)) and (isempty(_origin) or origin in (_origin))\n| summarize Bags = count() by destination\n| top 15 by Bags desc",
+      "usedVariables": [
+        "_startTime",
+        "_endTime",
+        "_airline",
+        "_origin"
+      ]
+    },
+    {
+      "id": "aa65b326-57e8-59c6-82b2-e507990b4e50",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "70f6906c-3410-58b9-b0c6-23ac00eab16b"
+      },
+      "text": "dash_bag_events(_startTime, _endTime)\n| where ingest between (_startTime .. _endTime)\n| where (isempty(_airline) or airline in (_airline)) and (isempty(_origin) or origin in (_origin))\n| where stage == 'Rejected'\n| summarize ['Rejected'] = dcount(bagId)",
+      "usedVariables": [
+        "_startTime",
+        "_endTime",
+        "_airline",
+        "_origin"
+      ]
+    },
+    {
+      "id": "e3d11ca6-7e38-5b32-89cd-52b6222dee81",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "70f6906c-3410-58b9-b0c6-23ac00eab16b"
+      },
+      "text": "dash_bag_events(_startTime, _endTime)\n| where ingest between (_startTime .. _endTime)\n| where (isempty(_airline) or airline in (_airline)) and (isempty(_origin) or origin in (_origin))\n| where stage == 'CustomsWithheld'\n| summarize ['Withheld'] = dcount(bagId)",
+      "usedVariables": [
+        "_startTime",
+        "_endTime",
+        "_airline",
+        "_origin"
+      ]
+    },
+    {
+      "id": "fec94ff1-675e-5a11-b6e5-7ecca9cf7b8a",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "70f6906c-3410-58b9-b0c6-23ac00eab16b"
+      },
+      "text": "dash_bag_events(_startTime, _endTime)\n| where ingest between (_startTime .. _endTime)\n| where (isempty(_airline) or airline in (_airline)) and (isempty(_origin) or origin in (_origin))\n| where stage == 'Lost'\n| summarize ['Lost'] = dcount(bagId)",
+      "usedVariables": [
+        "_startTime",
+        "_endTime",
+        "_airline",
+        "_origin"
+      ]
+    },
+    {
+      "id": "f0c425e3-4a39-5737-9131-52cb41a8be4a",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "70f6906c-3410-58b9-b0c6-23ac00eab16b"
+      },
+      "text": "dash_bag_events(_startTime, _endTime)\n| where ingest between (_startTime .. _endTime)\n| where (isempty(_airline) or airline in (_airline)) and (isempty(_origin) or origin in (_origin))\n| where stage == 'NotCollected'\n| summarize ['Not collected'] = dcount(bagId)",
+      "usedVariables": [
+        "_startTime",
+        "_endTime",
+        "_airline",
+        "_origin"
+      ]
+    },
+    {
+      "id": "66429dbf-e2b7-5ba7-b729-9102c52a0448",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "70f6906c-3410-58b9-b0c6-23ac00eab16b"
+      },
+      "text": "dash_bag_events(_startTime, _endTime)\n| where ingest between (_startTime .. _endTime)\n| where (isempty(_airline) or airline in (_airline)) and (isempty(_origin) or origin in (_origin))\n| where stage in ('Rejected', 'Lost', 'CustomsWithheld', 'NotCollected')\n| make-series Exceptions = dcount(bagId) default = 0 on ingest from bin(_startTime, 1m) to _endTime step 1m\n| where array_sum(Exceptions) >= 5\n| extend (Anomalies, Score, Baseline) = series_decompose_anomalies(Exceptions, 1.5, -1, 'linear', 0)",
+      "usedVariables": [
+        "_startTime",
+        "_endTime",
+        "_airline",
+        "_origin"
+      ]
+    },
+    {
+      "id": "21a8e1fd-7565-5f6c-8c39-ad3b4576a370",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "70f6906c-3410-58b9-b0c6-23ac00eab16b"
+      },
+      "text": "dash_bag_state(_startTime, _endTime)\n| where firstIngest between (_startTime .. _endTime)\n| where (isempty(_airline) or airline in (_airline)) and (isempty(_origin) or origin in (_origin))\n| where isnotempty(airline)\n| summarize Exceptions = countif(isException) by airline\n| order by Exceptions desc",
+      "usedVariables": [
+        "_startTime",
+        "_endTime",
+        "_airline",
+        "_origin"
+      ]
+    },
+    {
+      "id": "8daa415d-b9fd-5514-886c-2d80b4e25d5b",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "70f6906c-3410-58b9-b0c6-23ac00eab16b"
+      },
+      "text": "dash_bag_state(_startTime, _endTime)\n| where firstIngest between (_startTime .. _endTime)\n| where (isempty(_airline) or airline in (_airline)) and (isempty(_origin) or origin in (_origin))\n| where isException\n| summarize Bags = count() by destination, state\n| order by Bags desc\n| take 40",
+      "usedVariables": [
+        "_startTime",
+        "_endTime",
+        "_airline",
+        "_origin"
+      ]
+    },
+    {
+      "id": "62c2dc38-1ef2-564b-95ce-41f003631157",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "70f6906c-3410-58b9-b0c6-23ac00eab16b"
+      },
+      "text": "dash_bags_dim(ago(1d)) | where isnotempty(airline) | distinct airline | order by airline asc",
+      "usedVariables": []
+    },
+    {
+      "id": "d23b641f-1dcf-53f7-abe3-fc47298a37f9",
+      "dataSource": {
+        "kind": "inline",
+        "dataSourceId": "70f6906c-3410-58b9-b0c6-23ac00eab16b"
+      },
+      "text": "dash_bags_dim(ago(1d)) | where isnotempty(origin) | distinct origin | order by origin asc",
+      "usedVariables": []
+    }
+  ],
+  "autoRefresh": {
+    "enabled": true,
+    "defaultInterval": "30s",
+    "minInterval": "30s"
+  }
+}
