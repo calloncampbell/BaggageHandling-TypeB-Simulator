@@ -141,20 +141,21 @@ tile(P, "Live flight board", f"""dash_bag_state(_startTime, _endTime)
 | project Flight, Airline, Route = strcat(Origin, ' -> ', Destination), Bags, ['Loaded %'], Delivered, Exceptions, Status, Updated
 | order by Updated desc
 | take 50""", "table", 0, 0, 16, 10)
-tile(P, "Top 10 flights by exceptions", f"""dash_bag_state(_startTime, _endTime)
-{ST_FILTER}
-| where isException
-| summarize Exceptions = count() by Flight = strcat(flightNumber, ' ', origin, '-', destination)
+tile(P, "Top 10 flights by exceptions", f"""dash_bag_events(_startTime, _endTime)
+{EV_FILTER}
+| where stage in {EXC_STAGES}
+| summarize Exceptions = dcount(bagId) by Flight = strcat(flightNumber, ' ', origin, '-', destination)
 | top 10 by Exceptions desc""", "bar", 16, 0, 8, 10,
      series_opts("Flight", ["Exceptions"]))
-tile(P, "Average bag weight by airline (kg)", f"""dash_bag_state(_startTime, _endTime)
-{ST_FILTER}
-| where isnotempty(airline)
+tile(P, "Average bag weight by airline (kg)", f"""dash_bag_events(_startTime, _endTime)
+{EV_FILTER}
+| where stage == 'Checkin' and isnotempty(airline)
 | summarize ['Avg kg'] = round(avg(weightKg), 1) by airline
 | order by ['Avg kg'] desc""", "bar", 0, 10, 12, 8,
      series_opts("airline", ["Avg kg"]))
-tile(P, "Bags by destination", f"""dash_bag_state(_startTime, _endTime)
-{ST_FILTER}
+tile(P, "Bags by destination", f"""dash_bag_events(_startTime, _endTime)
+{EV_FILTER}
+| where stage == 'Checkin'
 | summarize Bags = count() by destination
 | top 15 by Bags desc""", "bar", 12, 10, 12, 8,
      series_opts("destination", ["Bags"]))

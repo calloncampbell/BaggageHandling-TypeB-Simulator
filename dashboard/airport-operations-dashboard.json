@@ -686,7 +686,7 @@
         "kind": "inline",
         "dataSourceId": "70f6906c-3410-58b9-b0c6-23ac00eab16b"
       },
-      "text": "dash_bag_state(_startTime, _endTime)\n| where firstIngest between (_startTime .. _endTime)\n| where (isempty(_airline) or airline in (_airline)) and (isempty(_origin) or origin in (_origin))\n| where isException\n| summarize Exceptions = count() by Flight = strcat(flightNumber, ' ', origin, '-', destination)\n| top 10 by Exceptions desc",
+      "text": "dash_bag_events(_startTime, _endTime)\n| where ingest between (_startTime .. _endTime)\n| where (isempty(_airline) or airline in (_airline)) and (isempty(_origin) or origin in (_origin))\n| where stage in ('Rejected', 'Lost', 'CustomsWithheld', 'NotCollected')\n| summarize Exceptions = dcount(bagId) by Flight = strcat(flightNumber, ' ', origin, '-', destination)\n| top 10 by Exceptions desc",
       "usedVariables": [
         "_startTime",
         "_endTime",
@@ -700,7 +700,7 @@
         "kind": "inline",
         "dataSourceId": "70f6906c-3410-58b9-b0c6-23ac00eab16b"
       },
-      "text": "dash_bag_state(_startTime, _endTime)\n| where firstIngest between (_startTime .. _endTime)\n| where (isempty(_airline) or airline in (_airline)) and (isempty(_origin) or origin in (_origin))\n| where isnotempty(airline)\n| summarize ['Avg kg'] = round(avg(weightKg), 1) by airline\n| order by ['Avg kg'] desc",
+      "text": "dash_bag_events(_startTime, _endTime)\n| where ingest between (_startTime .. _endTime)\n| where (isempty(_airline) or airline in (_airline)) and (isempty(_origin) or origin in (_origin))\n| where stage == 'Checkin' and isnotempty(airline)\n| summarize ['Avg kg'] = round(avg(weightKg), 1) by airline\n| order by ['Avg kg'] desc",
       "usedVariables": [
         "_startTime",
         "_endTime",
@@ -714,7 +714,7 @@
         "kind": "inline",
         "dataSourceId": "70f6906c-3410-58b9-b0c6-23ac00eab16b"
       },
-      "text": "dash_bag_state(_startTime, _endTime)\n| where firstIngest between (_startTime .. _endTime)\n| where (isempty(_airline) or airline in (_airline)) and (isempty(_origin) or origin in (_origin))\n| summarize Bags = count() by destination\n| top 15 by Bags desc",
+      "text": "dash_bag_events(_startTime, _endTime)\n| where ingest between (_startTime .. _endTime)\n| where (isempty(_airline) or airline in (_airline)) and (isempty(_origin) or origin in (_origin))\n| where stage == 'Checkin'\n| summarize Bags = count() by destination\n| top 15 by Bags desc",
       "usedVariables": [
         "_startTime",
         "_endTime",
